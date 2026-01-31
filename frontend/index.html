@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>OptionSense - Stock Trading Signals</title>
+    <meta name="description"
+        content="Real-time stock recommendations with Fibonacci, RSI, MACD analysis. Individual stocks and Index sentiment.">
+
+    <!-- PWA Meta Tags -->
+    <meta name="theme-color" content="#00d4ff">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="OptionSense">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="application-name" content="OptionSense">
+    <meta name="msapplication-TileColor" content="#0a0a0f">
+    <meta name="msapplication-tap-highlight" content="no">
+
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="manifest.json">
+
+    <!-- Icons -->
+    <link rel="icon" type="image/svg+xml" href="icons/icon.svg">
+    <link rel="apple-touch-icon" href="icons/icon.svg">
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <!-- Styles -->
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="app-header">
+            <div class="logo">
+                <span class="logo-icon">📊</span>
+                <span class="logo-text">Option<span class="accent">Sense</span></span>
+            </div>
+            <div class="header-right">
+                <div class="market-status" id="marketStatus">
+                    <span class="status-dot"></span>
+                    <span class="status-text">Loading...</span>
+                </div>
+                <div class="last-updated" id="lastUpdated">--:--:--</div>
+            </div>
+        </header>
+
+        <!-- Symbol Toggle -->
+        <div class="symbol-toggle">
+            <button class="toggle-btn active" data-symbol="NIFTY">NIFTY</button>
+            <button class="toggle-btn" data-symbol="BANKNIFTY">BANKNIFTY</button>
+        </div>
+
+        <!-- Navigation Tabs -->
+        <nav class="nav-tabs">
+            <button class="nav-tab active" data-tab="dashboard">
+                <span class="tab-icon">🎯</span>
+                Index
+            </button>
+            <button class="nav-tab" data-tab="stocks">
+                <span class="tab-icon">📊</span>
+                Stocks
+            </button>
+            <button class="nav-tab" data-tab="oi-analysis">
+                <span class="tab-icon">📈</span>
+                OI Chain
+            </button>
+        </nav>
+
+        <!-- Tab Content -->
+        <main class="tab-content">
+            <!-- Dashboard Tab -->
+            <section id="dashboard" class="tab-pane active">
+                <!-- Symbol Display Banner -->
+                <div class="symbol-banner" id="symbolBanner">
+                    <span class="symbol-name" id="currentSymbol">NIFTY</span>
+                    <span class="symbol-subtitle">Intraday Sentiment</span>
+                </div>
+
+                <!-- Sentiment Gauge -->
+                <div class="gauge-container">
+                    <div class="gauge-wrapper">
+                        <svg class="gauge-svg" viewBox="0 0 200 120">
+                            <!-- Background arc -->
+                            <path class="gauge-bg" d="M 20 100 A 80 80 0 0 1 180 100" />
+                            <!-- Colored segments -->
+                            <path class="gauge-segment gauge-red" d="M 20 100 A 80 80 0 0 1 60 35" />
+                            <path class="gauge-segment gauge-yellow" d="M 60 35 A 80 80 0 0 1 140 35" />
+                            <path class="gauge-segment gauge-green" d="M 140 35 A 80 80 0 0 1 180 100" />
+                            <!-- Needle -->
+                            <line class="gauge-needle" id="gaugeNeedle" x1="100" y1="100" x2="100" y2="30" />
+                            <circle class="gauge-center" cx="100" cy="100" r="8" />
+                        </svg>
+                        <div class="gauge-labels">
+                            <span class="label-sell">SELL</span>
+                            <span class="label-neutral">NEUTRAL</span>
+                            <span class="label-buy">BUY</span>
+                        </div>
+                    </div>
+                    <div class="gauge-score">
+                        <span class="score-value" id="sentimentScore">--</span>
+                        <span class="score-label" id="sentimentLabel">Loading...</span>
+                    </div>
+                </div>
+
+                <!-- Alert Box -->
+                <div class="alert-box" id="alertBox">
+                    <span class="alert-icon">⚠️</span>
+                    <span class="alert-text" id="alertText">Analyzing market sentiment...</span>
+                </div>
+
+                <!-- Metric Cards -->
+                <div class="metrics-grid">
+                    <!-- Price Card -->
+                    <div class="metric-card">
+                        <div class="metric-header">
+                            <span class="metric-icon">💰</span>
+                            <span class="metric-title">SPOT PRICE</span>
+                        </div>
+                        <div class="metric-value" id="spotPrice">--</div>
+                        <div class="metric-change" id="priceChange">
+                            <span class="change-value">--</span>
+                            <span class="change-pct">(--)</span>
+                        </div>
+                    </div>
+
+                    <!-- VWAP Card -->
+                    <div class="metric-card">
+                        <div class="metric-header">
+                            <span class="metric-icon">📏</span>
+                            <span class="metric-title">VWAP</span>
+                        </div>
+                        <div class="metric-value" id="vwapValue">--</div>
+                        <div class="metric-status" id="vwapStatus">--</div>
+                    </div>
+
+                    <!-- PCR Card -->
+                    <div class="metric-card">
+                        <div class="metric-header">
+                            <span class="metric-icon">⚖️</span>
+                            <span class="metric-title">PCR</span>
+                        </div>
+                        <div class="metric-value" id="pcrValue">--</div>
+                        <div class="metric-trend" id="pcrTrend">
+                            <span class="trend-icon">--</span>
+                            <span class="trend-text">--</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- OI Analysis Tab -->
+            <section id="oi-analysis" class="tab-pane">
+                <!-- Symbol Display for OI -->
+                <div class="symbol-banner small" id="oiSymbolBanner">
+                    <span class="symbol-name" id="oiCurrentSymbol">NIFTY</span>
+                    <span class="symbol-subtitle">Option Chain Analysis</span>
+                </div>
+
+                <div class="oi-header">
+                    <h2>Option Chain OI Analysis</h2>
+                    <div class="oi-legend">
+                        <span class="legend-item">
+                            <span class="legend-bar green"></span>
+                            Bullish Signal
+                        </span>
+                        <span class="legend-item">
+                            <span class="legend-bar red"></span>
+                            Bearish Signal
+                        </span>
+                    </div>
+                </div>
+
+                <div class="oi-table-container">
+                    <table class="oi-table">
+                        <thead>
+                            <tr>
+                                <th class="th-call">CALL OI CHG</th>
+                                <th class="th-strike">STRIKE</th>
+                                <th class="th-put">PUT OI CHG</th>
+                            </tr>
+                        </thead>
+                        <tbody id="oiTableBody">
+                            <!-- Dynamic rows will be inserted here -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Stocks Tab -->
+            <section id="stocks" class="tab-pane">
+                <div class="stocks-header">
+                    <h2>📊 Stock Screener</h2>
+                    <p class="stocks-subtitle">Individual stock recommendations based on technical analysis</p>
+                </div>
+
+                <!-- Search Box -->
+                <div class="stock-search">
+                    <input type="text" id="stockSearch" class="search-input"
+                        placeholder="🔍 Search stock (e.g., RELIANCE, TCS, HDFC)">
+                    <button id="searchBtn" class="search-btn">Search</button>
+                </div>
+
+                <!-- Filter Buttons -->
+                <div class="stock-filters">
+                    <button class="filter-btn active" data-filter="buy">🟢 Buy Signals</button>
+                    <button class="filter-btn" data-filter="sell">🔴 Sell Signals</button>
+                    <button class="filter-btn" data-filter="top_gainers">📈 Gainers</button>
+                    <button class="filter-btn" data-filter="top_losers">📉 Losers</button>
+                    <button class="filter-btn" data-filter="all">📋 All</button>
+                </div>
+
+                <!-- Summary Cards -->
+                <div class="stock-summary" id="stockSummary">
+                    <div class="summary-card buy">
+                        <span class="summary-count" id="buyCount">--</span>
+                        <span class="summary-label">Buy Signals</span>
+                    </div>
+                    <div class="summary-card sell">
+                        <span class="summary-count" id="sellCount">--</span>
+                        <span class="summary-label">Sell Signals</span>
+                    </div>
+                    <div class="summary-card hold">
+                        <span class="summary-count" id="holdCount">--</span>
+                        <span class="summary-label">Hold</span>
+                    </div>
+                </div>
+
+                <!-- Stock Cards List -->
+                <div class="stock-list" id="stockList">
+                    <!-- Dynamic stock cards will be inserted here -->
+                </div>
+            </section>
+        </main>
+
+        <!-- Loading Overlay -->
+        <div class="loading-overlay" id="loadingOverlay">
+            <div class="loading-spinner"></div>
+            <p>Fetching market data...</p>
+        </div>
+
+        <!-- Error Toast -->
+        <div class="error-toast" id="errorToast">
+            <span class="toast-icon">⚠️</span>
+            <span class="toast-message" id="toastMessage">Error loading data</span>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+
+</html>
