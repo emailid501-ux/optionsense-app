@@ -1,0 +1,67 @@
+{
+    "version": 2,
+    "builds": [
+        {
+            "src": "backend/main.py",
+            "use": "@vercel/python"
+        },
+        {
+            "src": "frontend/**",
+            "use": "@vercel/static"
+        }
+    ],
+    "rewrites": [
+        {
+            "source": "/dashboard-snapshot",
+            "destination": "/backend/main.py"
+        },
+        {
+            "source": "/oi-details",
+            "destination": "/backend/main.py"
+        },
+        {
+            "source": "/stock-screener",
+            "destination": "/backend/main.py"
+        },
+        {
+            "source": "/stock/(.*)",
+            "destination": "/backend/main.py"
+        },
+        {
+            "source": "/pro-analysis/(.*)",
+            "destination": "/backend/main.py"
+        },
+        {
+            "source": "/market-overview",
+            "destination": "/backend/main.py"
+        },
+        {
+            "source": "/pre-market-analysis",
+            "destination": "/backend/main.py"
+        },
+        {
+            "source": "/stock/(.*)/option-strategy",
+            "destination": "/backend/main.py"
+        },
+        {
+            "source": "/health",
+            "destination": "/backend/main.py"
+        },
+        {
+            "source": "/docs",
+            "destination": "/backend/main.py"
+        },
+        {
+            "source": "/openapi.json",
+            "destination": "/backend/main.py"
+        },
+        {
+            "source": "/",
+            "destination": "/frontend/index.html"
+        },
+        {
+            "source": "/(.*)",
+            "destination": "/frontend/$1"
+        }
+    ]
+}

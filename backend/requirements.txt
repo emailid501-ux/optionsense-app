@@ -5,3 +5,5 @@ pandas==2.2.0
 pandas_ta==0.3.14b0
 jugaad-data==0.24
 python-multipart==0.0.6
+yfinance
+beautifulsoup4

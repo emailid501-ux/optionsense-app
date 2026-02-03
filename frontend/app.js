@@ -4,9 +4,12 @@
  */
 
 // Configuration
+// Detect environment
+const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 const CONFIG = {
-    API_BASE_URL: 'http://localhost:8000',
-    REFRESH_INTERVAL: 180000, // 3 minutes in milliseconds
+    // If local, point to Python backend port 8000. If prod, use relative path (Vercel rewrites handles it)
+    API_BASE_URL: isLocal ? 'http://localhost:8000' : '',
+    REFRESH_INTERVAL: 2000,
     RETRY_DELAY: 5000,
     MAX_RETRIES: 3
 };
@@ -91,6 +94,20 @@ async function fetchStockScreener(filter = 'all') {
 
 async function fetchOptionStrategy(symbol) {
     const response = await fetch(`${CONFIG.API_BASE_URL}/stock/${symbol}/option-strategy`);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    return response.json();
+}
+
+// Phase 15: Advanced Indicators API
+async function fetchMarketOverview(symbol = 'NIFTY') {
+    const response = await fetch(`${CONFIG.API_BASE_URL}/dashboard-snapshot?symbol=${symbol}`);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    return response.json();
+}
+
+// Phase 19: Pro Trader 8-Point Analysis API
+async function fetchProAnalysis(symbol = 'NIFTY') {
+    const response = await fetch(`${CONFIG.API_BASE_URL}/pro-analysis/${symbol}`);
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     return response.json();
 }
@@ -256,11 +273,16 @@ function formatOIValue(value) {
 
 // ===== Data Fetching =====
 
-async function loadData() {
+async function loadData(showOverlay = false) {
     if (state.isLoading) return;
 
     try {
-        showLoading(true);
+        // Only show loading overlay on first load or manual refresh
+        const isFirstLoad = !state.lastData;
+        if (isFirstLoad || showOverlay) {
+            showLoading(true);
+        }
+        state.isLoading = true;
 
         // Fetch both endpoints with timeout
         const fetchPromise = Promise.all([
@@ -294,6 +316,10 @@ async function loadData() {
         updateMetrics(dashboardData.data);
         updateOITable(oiData);
 
+        // Phase 15: Load Advanced Indicators
+        loadMarketOverview(state.currentSymbol, dashboardData.data);
+
+
     } catch (error) {
         console.error('Error fetching data:', error);
         state.retryCount++;
@@ -306,6 +332,7 @@ async function loadData() {
         }
     } finally {
         showLoading(false);
+        state.isLoading = false;
     }
 }
 
@@ -385,12 +412,23 @@ function setupEventListeners() {
     });
 
     // Stock search
+    console.log('🔍 Search Elements:', {
+        searchBtn: elements.searchBtn,
+        stockSearch: elements.stockSearch
+    });
     if (elements.searchBtn) {
-        elements.searchBtn.addEventListener('click', searchStock);
+        elements.searchBtn.addEventListener('click', () => {
+            console.log('🔍 Search button clicked!');
+            searchStock();
+        });
+        console.log('✅ Search button listener attached');
+    } else {
+        console.log('❌ Search button NOT FOUND');
     }
     if (elements.stockSearch) {
         elements.stockSearch.addEventListener('keyup', (e) => {
             if (e.key === 'Enter') {
+                console.log('🔍 Enter pressed!');
                 searchStock();
             }
         });
@@ -419,12 +457,29 @@ function init() {
 // Load stock screener data
 async function loadStockData() {
     try {
-        const data = await fetchStockScreener(state.currentStockFilter);
+        // Add timeout protection (60 seconds for 100 stocks)
+        const fetchPromise = fetchStockScreener(state.currentStockFilter);
+        const timeoutPromise = new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('Stock data request timed out')), 60000)
+        );
+
+        const data = await Promise.race([fetchPromise, timeoutPromise]);
         state.stockData = data;
         updateStockSummary(data.summary);
         updateStockList(data.stocks);
     } catch (error) {
         console.error('Error fetching stock data:', error);
+        // Show error message in UI
+        const container = elements.stockList;
+        if (container) {
+            container.innerHTML = `
+                <div class="search-no-result">
+                    <div class="emoji">⚠️</div>
+                    <p>Failed to load stocks: ${error.message}</p>
+                    <button onclick="loadStockData()" class="retry-btn">Retry</button>
+                </div>
+            `;
+        }
     }
 }
 
@@ -445,7 +500,40 @@ async function searchStock() {
         return;
     }
 
+    // If stockData is not loaded, try to fetch directly from server
     if (!state.stockData || !state.stockData.stocks) {
+        // Show loading indicator
+        const container = elements.stockList;
+        if (container) {
+            container.innerHTML = `
+                <div class="search-no-result">
+                    <div class="loading-spinner small"></div>
+                    <p>Searching for "${searchTerm}"...</p>
+                </div>
+            `;
+
+            try {
+                // Fetch directly from server
+                const stockDetail = await fetchStockDetail(searchTerm);
+                if (stockDetail) {
+                    container.innerHTML = createStockCard(stockDetail);
+                    return;
+                }
+            } catch (e) {
+                console.log("Error fetching stock:", e);
+            }
+
+            // Not found
+            container.innerHTML = `
+                <div class="search-no-result">
+                    <div class="emoji">🔍</div>
+                    <p>"${searchTerm}" not found</p>
+                    <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 8px;">
+                        Try loading stocks first, or try: RELIANCE, TCS, SBIN
+                    </p>
+                </div>
+            `;
+        }
         return;
     }
 
@@ -525,7 +613,15 @@ function updateStockList(stocks) {
         return;
     }
 
+    // Store stocks for Best Pick analysis
+    state.stockData = stocks;
+
     container.innerHTML = stocks.map(stock => createStockCard(stock)).join('');
+
+    // Trigger Best Pick analysis (only once)
+    if (!bestPickShown && stocks.length > 10) {
+        triggerBestPickAnalysis();
+    }
 }
 
 function createStockCard(stock) {
@@ -566,6 +662,86 @@ function createStockCard(stock) {
         </div>
     ` : '';
 
+    // Stock Analysis Checklist - Quick summary of all indicators
+    let bullishChecks = 0;
+    let bearishChecks = 0;
+
+    // RSI check
+    const rsiCheck = stock.indicators.rsi_signal === 'OVERSOLD' ? 'bullish' :
+        stock.indicators.rsi_signal === 'OVERBOUGHT' ? 'bearish' : 'neutral';
+    if (rsiCheck === 'bullish') bullishChecks++;
+    else if (rsiCheck === 'bearish') bearishChecks++;
+
+    // MACD check
+    const macdCheck = stock.indicators.macd === 'BULLISH' ? 'bullish' :
+        stock.indicators.macd === 'BEARISH' ? 'bearish' : 'neutral';
+    if (macdCheck === 'bullish') bullishChecks++;
+    else if (macdCheck === 'bearish') bearishChecks++;
+
+    // Fib check
+    const fibCheck = stock.indicators && stock.indicators.fib_signal === 'BULLISH' ? 'bullish' :
+        stock.indicators && stock.indicators.fib_signal === 'BEARISH' ? 'bearish' : 'neutral';
+    if (fibCheck === 'bullish') bullishChecks++;
+    else if (fibCheck === 'bearish') bearishChecks++;
+
+    // Price trend check (based on change)
+    const trendCheck = stock.change > 0.5 ? 'bullish' : stock.change < -0.5 ? 'bearish' : 'neutral';
+    if (trendCheck === 'bullish') bullishChecks++;
+    else if (trendCheck === 'bearish') bearishChecks++;
+
+    // Score check
+    const scoreCheck = stock.score >= 7 ? 'bullish' : stock.score <= 3 ? 'bearish' : 'neutral';
+    if (scoreCheck === 'bullish') bullishChecks++;
+    else if (scoreCheck === 'bearish') bearishChecks++;
+
+    // Final verdict
+    const totalChecks = 5;
+    let stockVerdict, verdictIcon, verdictClass;
+    if (bullishChecks >= 3) {
+        stockVerdict = `🚀 BULLISH (${bullishChecks}/${totalChecks} positive)`;
+        verdictIcon = '🟢';
+        verdictClass = 'bullish';
+    } else if (bearishChecks >= 3) {
+        stockVerdict = `🔻 BEARISH (${bearishChecks}/${totalChecks} negative)`;
+        verdictIcon = '🔴';
+        verdictClass = 'bearish';
+    } else {
+        stockVerdict = `⚖️ NEUTRAL - Wait for clarity`;
+        verdictIcon = '🟡';
+        verdictClass = 'neutral';
+    }
+
+    const stockChecklistHtml = `
+        <div class="stock-checklist">
+            <div class="checklist-header">📊 Quick Analysis</div>
+            <div class="checklist-items-compact">
+                <div class="check-item ${rsiCheck}">
+                    <span class="check-label">RSI</span>
+                    <span class="check-result">${stock.indicators.rsi} (${stock.indicators.rsi_signal})</span>
+                </div>
+                <div class="check-item ${macdCheck}">
+                    <span class="check-label">MACD</span>
+                    <span class="check-result">${stock.indicators.macd}</span>
+                </div>
+                <div class="check-item ${fibCheck}">
+                    <span class="check-label">Fibonacci</span>
+                    <span class="check-result">${stock.fib_levels ? stock.fib_levels.zone : 'N/A'}</span>
+                </div>
+                <div class="check-item ${trendCheck}">
+                    <span class="check-label">Trend</span>
+                    <span class="check-result">${stock.change > 0 ? '↑' : '↓'} ${stock.change_pct.toFixed(2)}%</span>
+                </div>
+                <div class="check-item ${scoreCheck}">
+                    <span class="check-label">Score</span>
+                    <span class="check-result">${stock.score}/10</span>
+                </div>
+            </div>
+            <div class="stock-verdict ${verdictClass}">
+                ${verdictIcon} ${stockVerdict}
+            </div>
+        </div>
+    `;
+
     // Option Strategy Section
     const optionStrategyHtml = `
         <div class="option-strategy-container" id="option-strategy-${stock.symbol}">
@@ -573,6 +749,18 @@ function createStockCard(stock) {
                 📈 Get 1-Week Option Strategy
             </button>
             <div class="option-content" style="display: none;">
+                <div class="loading-spinner small"></div>
+            </div>
+        </div>
+    `;
+
+    // Phase 19: Pro Trader 8-Point Analysis Button
+    const proAnalysisHtml = `
+        <div class="pro-analysis-container" id="pro-analysis-${stock.symbol}">
+            <button class="pro-analysis-btn" onclick="toggleProAnalysis('${stock.symbol}')">
+                📊 Show Pro Analysis (8-Point)
+            </button>
+            <div class="pro-analysis-content" style="display: none;">
                 <div class="loading-spinner small"></div>
             </div>
         </div>
@@ -613,7 +801,7 @@ function createStockCard(stock) {
     ` : '';
 
     return `
-        <div class="stock-card-wrapper">
+        <div class="stock-card-wrapper" data-symbol="${stock.symbol}">
              <!-- ... existing card content ... -->
             <div class="stock-card" onclick="toggleStockDetails(this)">
                 <!-- ... header ... -->
@@ -628,8 +816,8 @@ function createStockCard(stock) {
                     </div>
                 </div>
                 <div class="stock-price-section">
-                    <span class="stock-price">₹${formatNumber(stock.price)}</span>
-                    <span class="stock-change ${isPositive ? 'positive' : 'negative'}">
+                    <span class="stock-price" id="price-${stock.symbol}">₹${formatNumber(stock.price)}</span>
+                    <span class="stock-change ${isPositive ? 'positive' : 'negative'}" id="change-${stock.symbol}">
                         ${isPositive ? '+' : ''}${stock.change_pct.toFixed(2)}%
                     </span>
                 </div>
@@ -641,7 +829,9 @@ function createStockCard(stock) {
                 </div>
             </div>
             ${tradingLevelsHtml}
+            ${stockChecklistHtml}
             ${optionStrategyHtml}
+            ${proAnalysisHtml}
             ${fibLevelsHtml}
             ${reasonsHtml}
         </div>
@@ -750,6 +940,179 @@ function renderOptionStrategy(container, strategy) {
     // actually better to keep it to toggle close, but simplifying UI
 }
 
+// ===== Phase 19: Pro Trader 8-Point Analysis =====
+async function toggleProAnalysis(symbol) {
+    const container = document.getElementById(`pro-analysis-${symbol}`);
+    if (!container) return;
+
+    const content = container.querySelector('.pro-analysis-content');
+    const button = container.querySelector('.pro-analysis-btn');
+
+    // Toggle visibility
+    if (content.style.display === 'block') {
+        content.style.display = 'none';
+        button.textContent = '📊 Show Pro Analysis (8-Point)';
+        return;
+    }
+
+    content.style.display = 'block';
+    button.textContent = '⏳ Loading...';
+
+    try {
+        const analysis = await fetchProAnalysis(symbol);
+        renderProAnalysis(content, analysis);
+        button.textContent = '📊 Hide Pro Analysis';
+    } catch (error) {
+        content.innerHTML = `<div class="pro-error">❌ Failed to load Pro Analysis: ${error.message}</div>`;
+        button.textContent = '📊 Retry Pro Analysis';
+    }
+}
+
+function renderProAnalysis(container, data) {
+    const pcr = data['1_pcr'] || {};
+    const oiShift = data['2_oi_shift'] || {};
+    const vixIv = data['3_vix_iv'] || {};
+    const volume = data['4_volume'] || {};
+    const oiLadder = data['5_oi_ladder'] || {};
+    const theta = data['6_theta_decay'] || {};
+    const breadth = data['7_market_breadth'] || {};
+    const vwap = data['8_vwap'] || {};
+    const verdict = data['overall_verdict'] || {};
+
+    container.innerHTML = `
+        <div class="pro-analysis-grid">
+            <!-- Overall Verdict -->
+            <div class="pro-verdict ${verdict.verdict?.toLowerCase() || 'neutral'}">
+                <h4>🎯 Overall Verdict</h4>
+                <span class="verdict-badge">${verdict.verdict || 'ANALYZING'}</span>
+                <p>${verdict.message || 'Analyzing...'}</p>
+                <div class="signal-count">
+                    <span class="bullish">🟢 ${verdict.bullish_signals || 0}</span>
+                    <span class="bearish">🔴 ${verdict.bearish_signals || 0}</span>
+                </div>
+            </div>
+
+            <!-- 1. PCR -->
+            <div class="pro-card" style="border-left: 4px solid ${pcr.color || '#888'}">
+                <div class="pro-header">
+                    <span class="pro-num">1</span>
+                    <span class="pro-title">PCR Analysis</span>
+                    <span class="pro-badge" style="background: ${pcr.color || '#888'}">${pcr.signal || 'N/A'}</span>
+                </div>
+                <div class="pro-value">${pcr.pcr || 'N/A'}</div>
+                <div class="pro-interpret">${pcr.interpretation || 'Loading...'}</div>
+                <div class="pro-strategy">📌 ${pcr.strategy || ''}</div>
+            </div>
+
+            <!-- 2. OI Shift -->
+            <div class="pro-card" style="border-left: 4px solid ${oiShift.signal === 'BULLISH' ? '#00E676' : oiShift.signal === 'BEARISH' ? '#FF5252' : '#FFD600'}">
+                <div class="pro-header">
+                    <span class="pro-num">2</span>
+                    <span class="pro-title">OI Shift</span>
+                    <span class="pro-badge ${oiShift.signal?.toLowerCase()}">${oiShift.signal || 'NEUTRAL'}</span>
+                </div>
+                <div class="pro-levels">
+                    <span class="support">📉 Max Put: ₹${oiShift.max_put_strike || 'N/A'}</span>
+                    <span class="resistance">📈 Max Call: ₹${oiShift.max_call_strike || 'N/A'}</span>
+                </div>
+                <div class="pro-interpret">${oiShift.interpretation || 'No shift detected'}</div>
+            </div>
+
+            <!-- 3. VIX & IV -->
+            <div class="pro-card">
+                <div class="pro-header">
+                    <span class="pro-num">3</span>
+                    <span class="pro-title">VIX & IV Skew</span>
+                    <span class="pro-badge ${vixIv.overall_signal?.toLowerCase()}">${vixIv.overall_signal || 'N/A'}</span>
+                </div>
+                <div class="pro-metrics">
+                    <div class="metric"><span>VIX</span><strong>${vixIv.vix || 'N/A'}</strong></div>
+                    <div class="metric"><span>Put IV</span><strong>${vixIv.put_iv || 'N/A'}</strong></div>
+                    <div class="metric"><span>Call IV</span><strong>${vixIv.call_iv || 'N/A'}</strong></div>
+                </div>
+                <div class="pro-interpret">${vixIv.iv_interpretation || ''}</div>
+                <div class="pro-strategy">📌 ${vixIv.vix_strategy || ''}</div>
+            </div>
+
+            <!-- 4. Volume -->
+            <div class="pro-card" style="border-left: 4px solid ${volume.color || '#888'}">
+                <div class="pro-header">
+                    <span class="pro-num">4</span>
+                    <span class="pro-title">Volume Analysis</span>
+                    <span class="pro-badge" style="background: ${volume.color || '#888'}">${volume.signal?.replace('_', ' ') || 'N/A'}</span>
+                </div>
+                <div class="pro-metrics">
+                    <div class="metric"><span>Volume Ratio</span><strong>${volume.volume_ratio || 'N/A'}x</strong></div>
+                    <div class="metric"><span>Price Δ</span><strong>₹${volume.price_change || 0}</strong></div>
+                </div>
+                <div class="pro-interpret">${volume.interpretation || ''}</div>
+            </div>
+
+            <!-- 5. OI Ladder -->
+            <div class="pro-card pro-wide">
+                <div class="pro-header">
+                    <span class="pro-num">5</span>
+                    <span class="pro-title">OI Ladder</span>
+                </div>
+                <div class="ladder-grid">
+                    <div class="ladder-col resistance">
+                        <h5>🔴 Resistance</h5>
+                        <p>${oiLadder.resistance_text || 'Loading...'}</p>
+                    </div>
+                    <div class="ladder-col support">
+                        <h5>🟢 Support</h5>
+                        <p>${oiLadder.support_text || 'Loading...'}</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 6. Theta Decay -->
+            <div class="pro-card">
+                <div class="pro-header">
+                    <span class="pro-num">6</span>
+                    <span class="pro-title">Theta Decay</span>
+                    <span class="pro-badge ${theta.signal?.toLowerCase()}">${theta.signal || 'N/A'}</span>
+                </div>
+                <div class="pro-metrics">
+                    <div class="metric"><span>ATM Straddle</span><strong>₹${theta.straddle_price || 'N/A'}</strong></div>
+                    <div class="metric"><span>Daily Theta</span><strong>~₹${theta.estimated_theta || 'N/A'}</strong></div>
+                </div>
+                <div class="pro-interpret">${theta.interpretation || ''}</div>
+                <div class="pro-strategy">📌 ${theta.strategy || ''}</div>
+            </div>
+
+            <!-- 7. Market Breadth -->
+            <div class="pro-card" style="border-left: 4px solid ${breadth.color || '#888'}">
+                <div class="pro-header">
+                    <span class="pro-num">7</span>
+                    <span class="pro-title">Market Breadth</span>
+                    <span class="pro-badge" style="background: ${breadth.color || '#888'}">${breadth.signal || 'N/A'}</span>
+                </div>
+                <div class="breadth-bar">
+                    <div class="breadth-green" style="width: ${(breadth.advancing || 0) * 2}%">${breadth.advancing || 0}</div>
+                    <div class="breadth-red" style="width: ${(breadth.declining || 0) * 2}%">${breadth.declining || 0}</div>
+                </div>
+                <div class="pro-interpret">${breadth.interpretation || ''}</div>
+            </div>
+
+            <!-- 8. VWAP -->
+            <div class="pro-card">
+                <div class="pro-header">
+                    <span class="pro-num">8</span>
+                    <span class="pro-title">VWAP Analysis</span>
+                    <span class="pro-badge ${vwap.signal?.toLowerCase()}">${vwap.signal?.replace('_', ' ') || 'N/A'}</span>
+                </div>
+                <div class="pro-metrics">
+                    <div class="metric"><span>VWAP</span><strong>₹${vwap.vwap || 'N/A'}</strong></div>
+                    <div class="metric"><span>Distance</span><strong>${vwap.distance_pct || 0}%</strong></div>
+                </div>
+                <div class="pro-interpret">${vwap.interpretation || ''}</div>
+                <div class="pro-strategy">📌 Entry: ${vwap.entry_recommendation || ''}</div>
+            </div>
+        </div>
+    `;
+}
+
 // Start the app
 document.addEventListener('DOMContentLoaded', init);
 
@@ -823,3 +1186,628 @@ setTimeout(() => {
         overlay.classList.remove('visible');
     }
 }, 5000);
+
+
+// ===== Phase 15: Pro Trader Panel Functions =====
+
+async function loadMarketOverview(symbol, dashboardData) {
+    try {
+        const overview = await fetchMarketOverview(symbol);
+        updateProTraderPanel(overview, dashboardData);
+    } catch (error) {
+        console.error('Error loading market overview:', error);
+        // Show fallback values on error
+        showProTraderFallback(dashboardData);
+    }
+}
+
+function showProTraderFallback(dashboardData) {
+    // VIX fallback
+    const vixValue = document.getElementById('vixValue');
+    const vixStatus = document.getElementById('vixStatus');
+    const vixAction = document.getElementById('vixAction');
+    if (vixValue) {
+        vixValue.textContent = '--';
+        vixStatus.textContent = 'Connecting...';
+        vixStatus.className = 'indicator-status YELLOW';
+        vixAction.textContent = 'Data loading from server';
+    }
+
+    // Market Breadth fallback
+    const breadthValue = document.getElementById('breadthValue');
+    const breadthStatus = document.getElementById('breadthStatus');
+    const breadthAction = document.getElementById('breadthAction');
+    if (breadthValue) {
+        breadthValue.innerHTML = '<span class="adv">--</span> ↑ | <span class="dec">--</span> ↓';
+        breadthStatus.textContent = 'Loading...';
+        breadthStatus.className = 'indicator-status YELLOW';
+        breadthAction.textContent = 'Fetching market data';
+    }
+
+    // Straddle fallback
+    const straddleValue = document.getElementById('straddleValue');
+    const straddleStatus = document.getElementById('straddleStatus');
+    if (straddleValue) {
+        straddleValue.textContent = '₹--';
+        straddleStatus.textContent = 'Loading option chain...';
+    }
+
+    // Still update checklist with available dashboard data
+    if (dashboardData) {
+        updatePartialChecklist(dashboardData);
+    }
+}
+
+function updatePartialChecklist(dashboardData) {
+    // PCR Check
+    const checkPCR = document.getElementById('checkPCR');
+    const checkPCRResult = document.getElementById('checkPCRResult');
+    if (checkPCR && dashboardData && dashboardData.pcr) {
+        const icon = checkPCR.querySelector('.check-icon');
+        icon.textContent = '✅';
+        const pcrValue = dashboardData.pcr.value;
+        const pcrStatus = pcrValue > 1 ? 'BULLISH' : pcrValue < 0.7 ? 'BEARISH' : 'NEUTRAL';
+        checkPCRResult.textContent = `${pcrValue.toFixed(2)} - ${pcrStatus}`;
+        checkPCRResult.className = `check-result ${pcrStatus.toLowerCase()}`;
+    }
+
+    // VWAP Check
+    const checkVWAP = document.getElementById('checkVWAP');
+    const checkVWAPResult = document.getElementById('checkVWAPResult');
+    if (checkVWAP && dashboardData && dashboardData.vwap_signal) {
+        const icon = checkVWAP.querySelector('.check-icon');
+        icon.textContent = '✅';
+        const vwapStatus = dashboardData.vwap_signal.is_bullish ? 'Above VWAP ↑' : 'Below VWAP ↓';
+        checkVWAPResult.textContent = vwapStatus;
+        checkVWAPResult.className = `check-result ${dashboardData.vwap_signal.is_bullish ? 'bullish' : 'bearish'}`;
+    }
+}
+
+function updateProTraderPanel(overview, dashboardData) {
+    // Update VIX Card
+    const vixValue = document.getElementById('vixValue');
+    const vixStatus = document.getElementById('vixStatus');
+    const vixAction = document.getElementById('vixAction');
+
+    if (vixValue && overview.vix) {
+        vixValue.textContent = overview.vix.value;
+        vixStatus.textContent = overview.vix.status;
+        vixStatus.className = `indicator-status ${overview.vix.color}`;
+        vixAction.textContent = overview.vix.action;
+    }
+
+    // Update Market Breadth Card
+    const breadthValue = document.getElementById('breadthValue');
+    const breadthStatus = document.getElementById('breadthStatus');
+    const breadthAction = document.getElementById('breadthAction');
+
+    if (breadthValue && overview.breadth) {
+        breadthValue.innerHTML = `<span class="adv">${overview.breadth.advancing}</span> ↑ | <span class="dec">${overview.breadth.declining}</span> ↓`;
+        breadthStatus.textContent = overview.breadth.status;
+        breadthStatus.className = `indicator-status ${overview.breadth.color}`;
+        breadthAction.textContent = overview.breadth.action;
+    }
+
+    // Update Straddle/Theta Card
+    const straddleValue = document.getElementById('straddleValue');
+    const straddleStatus = document.getElementById('straddleStatus');
+    const straddleAction = document.getElementById('straddleAction');
+
+    if (straddleValue && overview.straddle) {
+        straddleValue.textContent = `₹${overview.straddle.straddle_price || '--'}`;
+        straddleStatus.textContent = `ATM Strike: ${overview.straddle.atm_strike || '--'}`;
+        straddleAction.textContent = overview.straddle.action || '--';
+    }
+
+    // Update OI Ladder
+    updateOILadder(overview.oi_ladder);
+
+    // Update Checklist
+    updateTraderChecklist(overview, dashboardData);
+}
+
+function updateOILadder(ladderData) {
+    const resistanceLevels = document.getElementById('resistanceLevels');
+    const supportLevels = document.getElementById('supportLevels');
+
+    if (!resistanceLevels || !supportLevels || !ladderData) return;
+
+    // Find max OI for scaling
+    const allOI = [...(ladderData.resistances || []), ...(ladderData.supports || [])];
+    const maxOI = Math.max(...allOI.map(l => l.oi)) || 1;
+
+    // Render Resistances
+    if (ladderData.resistances && ladderData.resistances.length > 0) {
+        resistanceLevels.innerHTML = ladderData.resistances.map(level => {
+            const barWidth = Math.min(100, (level.oi / maxOI) * 100);
+            const oiFormatted = (level.oi / 100000).toFixed(1) + 'L';
+            return `
+                <div class="ladder-item">
+                    <span class="ladder-strike">${level.strike}</span>
+                    <div class="ladder-bar" style="width: ${barWidth}%"></div>
+                    <span class="ladder-oi">${oiFormatted}</span>
+                </div>
+            `;
+        }).join('');
+    } else {
+        resistanceLevels.innerHTML = '<div class="ladder-item">No data</div>';
+    }
+
+    // Render Supports
+    if (ladderData.supports && ladderData.supports.length > 0) {
+        supportLevels.innerHTML = ladderData.supports.map(level => {
+            const barWidth = Math.min(100, (level.oi / maxOI) * 100);
+            const oiFormatted = (level.oi / 100000).toFixed(1) + 'L';
+            return `
+                <div class="ladder-item">
+                    <span class="ladder-strike">${level.strike}</span>
+                    <div class="ladder-bar" style="width: ${barWidth}%"></div>
+                    <span class="ladder-oi">${oiFormatted}</span>
+                </div>
+            `;
+        }).join('');
+    } else {
+        supportLevels.innerHTML = '<div class="ladder-item">No data</div>';
+    }
+}
+
+function updateTraderChecklist(overview, dashboardData) {
+    let bullishCount = 0;
+    let bearishCount = 0;
+
+    // Check 1: Market Breadth
+    const checkBreadth = document.getElementById('checkBreadth');
+    const checkBreadthResult = document.getElementById('checkBreadthResult');
+    if (checkBreadth && overview.breadth) {
+        const icon = checkBreadth.querySelector('.check-icon');
+        icon.textContent = '✅';
+        icon.classList.add('checked');
+        checkBreadthResult.textContent = overview.breadth.status;
+        checkBreadthResult.className = `check-result ${overview.breadth.status === 'BULLISH' ? 'bullish' : overview.breadth.status === 'BEARISH' ? 'bearish' : 'neutral'}`;
+        if (overview.breadth.status === 'BULLISH') bullishCount++;
+        else if (overview.breadth.status === 'BEARISH') bearishCount++;
+    }
+
+    // Check 2: PCR
+    const checkPCR = document.getElementById('checkPCR');
+    const checkPCRResult = document.getElementById('checkPCRResult');
+    if (checkPCR && dashboardData && dashboardData.pcr) {
+        const icon = checkPCR.querySelector('.check-icon');
+        icon.textContent = '✅';
+        icon.classList.add('checked');
+        const pcrValue = dashboardData.pcr.value;
+        const pcrStatus = pcrValue > 1 ? 'BULLISH' : pcrValue < 0.7 ? 'BEARISH' : 'NEUTRAL';
+        checkPCRResult.textContent = `${pcrValue.toFixed(2)} - ${pcrStatus}`;
+        checkPCRResult.className = `check-result ${pcrStatus.toLowerCase()}`;
+        if (pcrStatus === 'BULLISH') bullishCount++;
+        else if (pcrStatus === 'BEARISH') bearishCount++;
+    }
+
+    // Check 3: VWAP
+    const checkVWAP = document.getElementById('checkVWAP');
+    const checkVWAPResult = document.getElementById('checkVWAPResult');
+    if (checkVWAP && dashboardData && dashboardData.vwap_signal) {
+        const icon = checkVWAP.querySelector('.check-icon');
+        icon.textContent = '✅';
+        icon.classList.add('checked');
+        const vwapStatus = dashboardData.vwap_signal.is_bullish ? 'Above VWAP ↑' : 'Below VWAP ↓';
+        checkVWAPResult.textContent = vwapStatus;
+        checkVWAPResult.className = `check-result ${dashboardData.vwap_signal.is_bullish ? 'bullish' : 'bearish'}`;
+        if (dashboardData.vwap_signal.is_bullish) bullishCount++;
+        else bearishCount++;
+    }
+
+    // Check 4: VIX
+    const checkVIX = document.getElementById('checkVIX');
+    const checkVIXResult = document.getElementById('checkVIXResult');
+    if (checkVIX && overview.vix) {
+        const icon = checkVIX.querySelector('.check-icon');
+        icon.textContent = '✅';
+        icon.classList.add('checked');
+        checkVIXResult.textContent = `${overview.vix.value} - ${overview.vix.status}`;
+        const vixClass = overview.vix.color === 'GREEN' ? 'bullish' : overview.vix.color === 'RED' ? 'bearish' : 'neutral';
+        checkVIXResult.className = `check-result ${vixClass}`;
+        if (overview.vix.color === 'GREEN') bullishCount++;
+        else if (overview.vix.color === 'RED') bearishCount++;
+    }
+
+    // Check 5: OI Levels
+    const checkOI = document.getElementById('checkOI');
+    const checkOIResult = document.getElementById('checkOIResult');
+    if (checkOI && overview.oi_ladder) {
+        const icon = checkOI.querySelector('.check-icon');
+        icon.textContent = '✅';
+        icon.classList.add('checked');
+        const support = overview.oi_ladder.max_support || '--';
+        const resistance = overview.oi_ladder.max_resistance || '--';
+        checkOIResult.textContent = `S:${support} R:${resistance}`;
+        checkOIResult.className = 'check-result neutral';
+    }
+
+    // Final Verdict
+    const verdict = document.getElementById('checklistVerdict');
+    if (verdict) {
+        const verdictText = verdict.querySelector('.verdict-text');
+        const verdictIcon = verdict.querySelector('.verdict-icon');
+
+        if (bullishCount >= 3) {
+            verdictIcon.textContent = '🚀';
+            verdictText.textContent = `BULLISH Signal (${bullishCount}/5 indicators positive) - Look for BUY/CALL`;
+            verdictText.className = 'verdict-text bullish';
+        } else if (bearishCount >= 3) {
+            verdictIcon.textContent = '🔻';
+            verdictText.textContent = `BEARISH Signal (${bearishCount}/5 indicators negative) - Look for SELL/PUT`;
+            verdictText.className = 'verdict-text bearish';
+        } else {
+            verdictIcon.textContent = '⚖️';
+            verdictText.textContent = `NEUTRAL Signal - Mixed indicators. Wait for clarity.`;
+            verdictText.className = 'verdict-text';
+        }
+    }
+}
+
+// ===== Today's Best Pick Feature =====
+
+let bestPickShown = false;
+
+function findBestPick(stocks) {
+    if (!stocks || stocks.length === 0) return null;
+
+    // Filter stocks with BUY recommendation and score >= 7
+    let bestStocks = stocks.filter(s =>
+        s.recommendation === 'Buy' && s.score >= 7
+    );
+
+    if (bestStocks.length === 0) {
+        // Fallback: get highest scoring stock
+        bestStocks = [...stocks].sort((a, b) => b.score - a.score);
+    }
+
+    // Calculate composite score for each stock
+    bestStocks.forEach(stock => {
+        let compositeScore = stock.score * 10; // Base score (0-100)
+
+        // RSI bonus
+        if (stock.indicators.rsi_signal === 'OVERSOLD') compositeScore += 20;
+        else if (stock.indicators.rsi_signal === 'OVERBOUGHT') compositeScore -= 20;
+
+        // MACD bonus
+        if (stock.indicators.macd === 'BULLISH') compositeScore += 15;
+        else if (stock.indicators.macd === 'BEARISH') compositeScore -= 15;
+
+        // Fibonacci bonus
+        if (stock.indicators.fib_signal === 'BULLISH') compositeScore += 10;
+        else if (stock.indicators.fib_signal === 'BEARISH') compositeScore -= 10;
+
+        // Price trend bonus
+        if (stock.change_pct > 1) compositeScore += 10;
+        else if (stock.change_pct < -1) compositeScore -= 10;
+
+        // Risk-Reward bonus
+        if (stock.trading_levels && stock.trading_levels.risk_reward !== 'N/A') {
+            const rr = parseFloat(stock.trading_levels.risk_reward);
+            if (rr >= 2) compositeScore += 15;
+            else if (rr >= 1.5) compositeScore += 10;
+        }
+
+        stock.compositeScore = compositeScore;
+    });
+
+    // Sort by composite score and return best
+    bestStocks.sort((a, b) => b.compositeScore - a.compositeScore);
+    return bestStocks[0];
+}
+
+function showBestPickPopup(stock) {
+    if (!stock || bestPickShown) return;
+
+    const overlay = document.getElementById('bestPickOverlay');
+    if (!overlay) return;
+
+    // Populate stock info
+    document.getElementById('bestPickSymbol').textContent = stock.symbol;
+    document.getElementById('bestPickName').textContent = stock.name;
+    document.getElementById('bestPickScore').textContent = `Score: ${stock.score}/10`;
+
+    // Verdict
+    const verdictEl = document.getElementById('bestPickVerdict');
+    if (stock.recommendation === 'Buy' && stock.score >= 8) {
+        verdictEl.innerHTML = '🚀 <strong>STRONG BUY</strong> - High Confidence';
+        verdictEl.className = 'best-pick-verdict bullish';
+    } else if (stock.recommendation === 'Buy') {
+        verdictEl.innerHTML = '📈 <strong>BUY</strong> - Good Opportunity';
+        verdictEl.className = 'best-pick-verdict bullish';
+    } else {
+        verdictEl.innerHTML = '👀 <strong>WATCH</strong> - Monitor for Entry';
+        verdictEl.className = 'best-pick-verdict neutral';
+    }
+
+    // Trading levels
+    if (stock.trading_levels) {
+        document.getElementById('bestPickEntry').textContent =
+            `₹${formatNumber(stock.trading_levels.entry)}`;
+        document.getElementById('bestPickTarget').textContent =
+            `₹${formatNumber(stock.trading_levels.target)}`;
+        document.getElementById('bestPickStoploss').textContent =
+            `₹${formatNumber(stock.trading_levels.stoploss)}`;
+    }
+
+    // Indicators
+    const indicatorsEl = document.getElementById('bestPickIndicators');
+    indicatorsEl.innerHTML = `
+        <div class="indicator-item ${stock.indicators.rsi_signal === 'OVERSOLD' ? 'bullish' : stock.indicators.rsi_signal === 'OVERBOUGHT' ? 'bearish' : ''}">
+            <span>RSI</span>
+            <span>${stock.indicators.rsi} (${stock.indicators.rsi_signal})</span>
+        </div>
+        <div class="indicator-item ${stock.indicators.macd === 'BULLISH' ? 'bullish' : stock.indicators.macd === 'BEARISH' ? 'bearish' : ''}">
+            <span>MACD</span>
+            <span>${stock.indicators.macd}</span>
+        </div>
+        <div class="indicator-item ${stock.indicators.fib_signal === 'BULLISH' ? 'bullish' : stock.indicators.fib_signal === 'BEARISH' ? 'bearish' : ''}">
+            <span>Fibonacci</span>
+            <span>${stock.fib_levels ? stock.fib_levels.zone : 'N/A'}</span>
+        </div>
+        <div class="indicator-item ${stock.change_pct > 0 ? 'bullish' : 'bearish'}">
+            <span>Trend</span>
+            <span>${stock.change_pct > 0 ? '↑' : '↓'} ${stock.change_pct.toFixed(2)}%</span>
+        </div>
+    `;
+
+    // Reasons
+    const reasonEl = document.getElementById('bestPickReason');
+    if (stock.reasons_hi && stock.reasons_hi.length > 0) {
+        reasonEl.innerHTML = stock.reasons_hi.slice(0, 2).map(r => `<div>• ${r}</div>`).join('');
+    } else {
+        reasonEl.innerHTML = `<div>• Strong technical indicators</div><div>• Good risk-reward ratio</div>`;
+    }
+
+    // Show popup with animation
+    overlay.style.display = 'flex';
+    setTimeout(() => overlay.classList.add('show'), 10);
+    bestPickShown = true;
+}
+
+function closeBestPick() {
+    const overlay = document.getElementById('bestPickOverlay');
+    if (overlay) {
+        overlay.classList.remove('show');
+        setTimeout(() => overlay.style.display = 'none', 300);
+    }
+}
+
+// Trigger best pick analysis after stocks load
+function triggerBestPickAnalysis() {
+    // Wait 3 seconds after data loads to show popup
+    setTimeout(() => {
+        const stocks = state.stockData;
+        if (stocks && stocks.length > 0) {
+            const bestStock = findBestPick(stocks);
+            if (bestStock) {
+                showBestPickPopup(bestStock);
+            }
+        }
+    }, 3000);
+}
+
+// ===== Pre-Market Analysis Functions =====
+
+let preMarketDataLoaded = false;
+
+async function loadPreMarketAnalysis() {
+    try {
+        const moodEl = document.getElementById('overallMood');
+        if (moodEl) {
+            moodEl.innerHTML = '<span class="mood-icon">⏳</span><span class="mood-text">Analyzing 200+ Stocks & Global Markets... (takes ~60s)</span>';
+            moodEl.className = 'mood-banner loading';
+        }
+
+        const response = await fetch(`${CONFIG.API_BASE_URL}/pre-market-analysis`, {
+            signal: AbortSignal.timeout(120000) // 2 minutes timeout for 200 stocks
+        });
+
+        if (!response.ok) throw new Error('Failed to fetch pre-market data');
+
+        const data = await response.json();
+
+        // Render all sections
+        renderOverallMood(data.overall_mood);
+        renderGlobalMarkets(data.global_markets);
+        renderNewsSentiment(data.news);
+        renderTopPicks(data.top_picks);
+
+        preMarketDataLoaded = true;
+    } catch (error) {
+        console.error('Pre-market analysis error:', error);
+        // Show error state
+        const moodEl = document.getElementById('overallMood');
+        if (moodEl) {
+            moodEl.innerHTML = '<span class="mood-icon">⚠️</span><span class="mood-text">Could not fetch data. Click refresh to try again.</span>';
+            moodEl.className = 'mood-banner error';
+        }
+    }
+}
+
+function renderOverallMood(mood) {
+    const moodEl = document.getElementById('overallMood');
+    if (!moodEl || !mood) return;
+
+    const moodClass = mood.mood.toLowerCase();
+    moodEl.innerHTML = `
+        <span class="mood-icon">${mood.icon}</span>
+        <span class="mood-text"><strong>${mood.mood}</strong> - ${mood.message}</span>
+    `;
+    moodEl.className = `mood-banner ${moodClass}`;
+}
+
+function renderGlobalMarkets(globalData) {
+    const container = document.getElementById('globalMarketsGrid');
+    if (!container || !globalData) return;
+
+    const markets = globalData.data || [];
+
+    container.innerHTML = markets.map(market => `
+        <div class="market-card ${market.is_positive ? 'positive' : 'negative'}">
+            <div class="market-name">${market.name}</div>
+            <div class="market-price">${market.price.toLocaleString()}</div>
+            <div class="market-change ${market.is_positive ? 'up' : 'down'}">
+                ${market.is_positive ? '▲' : '▼'} ${Math.abs(market.change_pct).toFixed(2)}%
+            </div>
+        </div>
+    `).join('');
+}
+
+function renderNewsSentiment(newsData) {
+    const summaryEl = document.getElementById('newsSentimentSummary');
+    const listEl = document.getElementById('newsList');
+
+    if (!newsData) return;
+
+    // Render summary
+    if (summaryEl && newsData.sentiment) {
+        const s = newsData.sentiment;
+        const icon = s.mood === 'BULLISH' ? '🟢' : s.mood === 'BEARISH' ? '🔴' : '🟡';
+        summaryEl.innerHTML = `
+            <span class="sentiment-icon">${icon}</span>
+            <span class="sentiment-text">
+                <strong>${s.mood}</strong> - 
+                ${s.bullish_count} positive, ${s.bearish_count} negative, ${s.neutral_count} neutral
+                (Score: ${s.score}/10)
+            </span>
+        `;
+        summaryEl.className = `news-sentiment-summary ${s.mood.toLowerCase()}`;
+    }
+
+    // Render news list
+    if (listEl && newsData.headlines) {
+        listEl.innerHTML = newsData.headlines.slice(0, 6).map(news => `
+            <div class="news-card ${news.is_bullish === true ? 'bullish' : news.is_bullish === false ? 'bearish' : 'neutral'}">
+                <span class="news-sentiment-tag">${news.is_bullish === true ? '🟢' : news.is_bullish === false ? '🔴' : '🟡'}</span>
+                <span class="news-title">${news.title}</span>
+                <span class="news-source">${news.source}</span>
+            </div>
+        `).join('');
+    }
+}
+
+function renderTopPicks(picks) {
+    const container = document.getElementById('topPicksList');
+    if (!container || !picks) return;
+
+    container.innerHTML = picks.map((pick, index) => `
+        <div class="pick-card">
+            <div class="pick-rank">#${index + 1}</div>
+            <div class="pick-info">
+                <div class="pick-header">
+                    <span class="pick-symbol">${pick.symbol}</span>
+                    <span class="pick-rec ${pick.recommendation.toLowerCase()}">${pick.recommendation}</span>
+                </div>
+                <div class="pick-name">${pick.name}</div>
+                <div class="pick-levels">
+                    <span class="entry">Entry: ₹${formatNumber(pick.entry)}</span>
+                    <span class="target">Target: ₹${formatNumber(pick.target)}</span>
+                    <span class="stoploss">SL: ₹${formatNumber(pick.stoploss)}</span>
+                </div>
+                <div class="pick-reasons">
+                    ${pick.reasons.map(r => `<span class="reason-tag">✓ ${r}</span>`).join('')}
+                </div>
+            </div>
+            <div class="pick-score">${pick.score}/10</div>
+        </div>
+    `).join('');
+}
+
+// Load pre-market data when tab is clicked
+document.addEventListener('DOMContentLoaded', () => {
+    // Add listener for pre-market tab
+    document.querySelectorAll('.nav-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            if (tab.dataset.tab === 'pre-market' && !preMarketDataLoaded) {
+                loadPreMarketAnalysis();
+            }
+        });
+    });
+});
+
+// ===== LIVE STOCK PRICE TIMER (2-second refresh) =====
+let livePriceTimer = null;
+let activeStockSymbols = new Set();
+
+function startLivePriceUpdates() {
+    // Only run on Stocks tab
+    if (state.currentTab !== 'stocks') {
+        stopLivePriceUpdates();
+        return;
+    }
+
+    // Find all visible stock cards
+    const stockCards = document.querySelectorAll('.stock-card-wrapper[data-symbol]');
+    activeStockSymbols.clear();
+    stockCards.forEach(card => {
+        const symbol = card.dataset.symbol;
+        if (symbol) activeStockSymbols.add(symbol);
+    });
+
+    // Start the 2-second timer
+    if (!livePriceTimer && activeStockSymbols.size > 0) {
+        livePriceTimer = setInterval(updateLivePrices, 2000);
+        console.log(`🔴 LIVE: Started 2s price updates for ${activeStockSymbols.size} stocks`);
+    }
+}
+
+function stopLivePriceUpdates() {
+    if (livePriceTimer) {
+        clearInterval(livePriceTimer);
+        livePriceTimer = null;
+        console.log('⚪ LIVE: Stopped price updates');
+    }
+}
+
+async function updateLivePrices() {
+    // Only update first 5 visible stocks (to avoid API overload)
+    const symbolsToUpdate = Array.from(activeStockSymbols).slice(0, 5);
+
+    for (const symbol of symbolsToUpdate) {
+        try {
+            const response = await fetch(`${CONFIG.API_BASE_URL}/stock-price/${symbol}`);
+            if (response.ok) {
+                const data = await response.json();
+
+                // Update price element
+                const priceEl = document.getElementById(`price-${symbol}`);
+                if (priceEl) {
+                    priceEl.textContent = `₹${formatNumber(data.price)}`;
+                    priceEl.classList.add('price-flash');
+                    setTimeout(() => priceEl.classList.remove('price-flash'), 300);
+                }
+
+                // Update change element
+                const changeEl = document.getElementById(`change-${symbol}`);
+                if (changeEl) {
+                    const isPositive = data.change >= 0;
+                    changeEl.textContent = `${isPositive ? '+' : ''}${data.change_pct.toFixed(2)}%`;
+                    changeEl.className = `stock-change ${isPositive ? 'positive' : 'negative'}`;
+                }
+            }
+        } catch (e) {
+            // Silent fail - don't break the loop
+        }
+    }
+}
+
+// Hook into tab changes to start/stop timer
+const originalSwitchTab = switchTab;
+switchTab = function (tabId) {
+    originalSwitchTab(tabId);
+    if (tabId === 'stocks') {
+        setTimeout(startLivePriceUpdates, 500); // Wait for cards to render
+    } else {
+        stopLivePriceUpdates();
+    }
+};
+
+// Also start when stocks load
+const originalUpdateStockList = updateStockList;
+updateStockList = function (stocks) {
+    originalUpdateStockList(stocks);
+    setTimeout(startLivePriceUpdates, 500);
+};

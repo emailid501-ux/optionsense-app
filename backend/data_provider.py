@@ -16,13 +16,17 @@ from algorithms import (
 # Base prices for indices
 BASE_PRICES = {
     "NIFTY": 25350.0,
-    "BANKNIFTY": 53800.0
+    "BANKNIFTY": 53800.0,
+    "FINNIFTY": 24500.0,
+    "MIDCPNIFTY": 12800.0
 }
 
 # Strike step sizes
 STRIKE_STEPS = {
     "NIFTY": 50,
-    "BANKNIFTY": 100
+    "BANKNIFTY": 100,
+    "FINNIFTY": 50,
+    "MIDCPNIFTY": 25
 }
 
 
@@ -34,7 +38,33 @@ class MarketDataProvider:
         self._last_update = {}
         self._oi_data = {}
         self._pcr_history = {}
-        self._scenario = "BULLISH"  # Can be: BULLISH, BEARISH, SIDEWAYS, VOLATILE
+        self._scenario = "BULLISH"
+        
+        # Try to sync base prices with real market data on startup
+        try:
+            from live_data import fetch_option_chain
+            from jugaad_data.nse import NSELive
+            
+            print("Syncing mock data with real market prices...")
+            nse = NSELive()
+            
+            # Update each index base price
+            for symbol in BASE_PRICES.keys():
+                try:
+                    # Use fetch_option_chain to get underlying price (more reliable)
+                    chain_data = fetch_option_chain(symbol)
+                    
+                    if chain_data and 'records' in chain_data:
+                        underlying_value = chain_data['records'].get('underlyingValue')
+                        if underlying_value:
+                            real_price = float(underlying_value)
+                            BASE_PRICES[symbol] = real_price
+                            print(f"Updated {symbol} base price to {real_price}")
+                except Exception as e:
+                    print(f"Could not sync {symbol}: {e}")
+                    
+        except Exception as e:
+            print(f"Mock data sync failed: {e}")
         
     def _is_market_open(self) -> bool:
         """Check if Indian market is open (9:15 AM to 3:30 PM IST)."""
@@ -42,8 +72,9 @@ class MarketDataProvider:
         market_open = time(9, 15)
         market_close = time(15, 30)
         
-        # Check if weekday (0-4 = Mon-Fri)
-        if now.weekday() > 4:
+        # Check if weekday (0-4 = Mon-Fri), but allow Budget Day (Feb 1st 2026)
+        is_budget_day = now.date() == datetime(2026, 2, 1).date()
+        if now.weekday() > 4 and not is_budget_day:
             return False
         
         current_time = now.time()

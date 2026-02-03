@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>OptionSense Live</title>
+    <meta name="theme-color" content="#0d0d1a">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0d0d1a;
+            --bg-card: #1a1a2e;
+            --text-primary: #ffffff;
+            --text-secondary: #a0a0b0;
+            --bullish: #00E676;
+            --bearish: #FF5252;
+            --accent: #00d4ff;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            padding: 16px;
+        }
+
+        .container {
+            max-width: 480px;
+            margin: 0 auto;
+        }
+
+        /* Header */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .logo {
+            font-size: 1.4rem;
+            font-weight: 700;
+        }
+
+        .logo span {
+            color: var(--accent);
+        }
+
+        .live-badge {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: #FF5252;
+            animation: pulse 1.5s infinite;
+        }
+
+        .live-dot {
+            width: 8px;
+            height: 8px;
+            background: #FF5252;
+            border-radius: 50%;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.5;
+            }
+        }
+
+        /* Index Cards */
+        .index-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .index-card {
+            background: var(--bg-card);
+            border-radius: 12px;
+            padding: 16px;
+            text-align: center;
+        }
+
+        .index-name {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+        }
+
+        .index-price {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 4px;
+            transition: all 0.3s;
+        }
+
+        .index-change {
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+
+        .positive {
+            color: var(--bullish);
+        }
+
+        .negative {
+            color: var(--bearish);
+        }
+
+        .price-flash {
+            animation: flash 0.3s ease;
+        }
+
+        @keyframes flash {
+            0% {
+                transform: scale(1.05);
+                background: rgba(0, 230, 118, 0.3);
+            }
+
+            100% {
+                transform: scale(1);
+                background: transparent;
+            }
+        }
+
+        /* Section Title */
+        .section-title {
+            font-size: 1rem;
+            font-weight: 600;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* Stock Cards */
+        .stock-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .stock-card {
+            background: var(--bg-card);
+            border-radius: 12px;
+            padding: 14px 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .stock-info {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .stock-symbol {
+            font-weight: 700;
+            font-size: 1rem;
+        }
+
+        .stock-name {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+
+        .stock-price-section {
+            text-align: right;
+        }
+
+        .stock-price {
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+
+        .stock-change {
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+
+        /* Search */
+        .search-container {
+            margin-top: 20px;
+        }
+
+        .search-input {
+            width: 100%;
+            background: var(--bg-card);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 14px 16px;
+            font-size: 1rem;
+            color: var(--text-primary);
+            outline: none;
+        }
+
+        .search-input:focus {
+            border-color: var(--accent);
+        }
+
+        .search-input::placeholder {
+            color: var(--text-secondary);
+        }
+
+        /* Connection Status */
+        .connection-status {
+            text-align: center;
+            padding: 20px;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        .status-connected {
+            color: var(--bullish);
+        }
+
+        .status-disconnected {
+            color: var(--bearish);
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="logo">📊 Option<span>Sense</span></div>
+            <div class="live-badge">
+                <span class="live-dot"></span>
+                <span id="connectionStatus">CONNECTING...</span>
+            </div>
+        </header>
+
+        <!-- Index Prices -->
+        <div class="index-row">
+            <div class="index-card" id="card-NIFTY">
+                <div class="index-name">NIFTY 50</div>
+                <div class="index-price" id="price-NIFTY">--</div>
+                <div class="index-change" id="change-NIFTY">--</div>
+            </div>
+            <div class="index-card" id="card-BANKNIFTY">
+                <div class="index-name">BANK NIFTY</div>
+                <div class="index-price" id="price-BANKNIFTY">--</div>
+                <div class="index-change" id="change-BANKNIFTY">--</div>
+            </div>
+        </div>
+
+        <!-- Top Stocks -->
+        <div class="section-title">🎯 Top Stocks (Live)</div>
+        <div class="stock-list" id="stockList">
+            <div class="connection-status">Connecting to live feed...</div>
+        </div>
+
+        <!-- Search -->
+        <div class="search-container">
+            <input type="text" class="search-input" id="searchInput"
+                placeholder="🔍 Search any stock (e.g., ONGC, TCS)">
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8000';
+        const WS_URL = 'ws://localhost:8000/ws/prices';
+
+        let ws = null;
+        let reconnectAttempts = 0;
+
+        const stockNames = {
+            'RELIANCE': 'Reliance Industries',
+            'TCS': 'Tata Consultancy',
+            'HDFCBANK': 'HDFC Bank',
+            'INFY': 'Infosys',
+            'ICICIBANK': 'ICICI Bank',
+            'TATASTEEL': 'Tata Steel'
+        };
+
+        function connectWebSocket() {
+            ws = new WebSocket(WS_URL);
+
+            ws.onopen = () => {
+                document.getElementById('connectionStatus').textContent = 'LIVE';
+                document.getElementById('connectionStatus').parentElement.classList.add('status-connected');
+                reconnectAttempts = 0;
+                console.log('🔌 WebSocket connected');
+            };
+
+            ws.onmessage = (event) => {
+                const msg = JSON.parse(event.data);
+                if (msg.type === 'price_update') {
+                    updatePrices(msg.data);
+                }
+            };
+
+            ws.onclose = () => {
+                document.getElementById('connectionStatus').textContent = 'OFFLINE';
+                document.getElementById('connectionStatus').parentElement.classList.remove('status-connected');
+                document.getElementById('connectionStatus').parentElement.classList.add('status-disconnected');
+
+                // Reconnect after delay
+                reconnectAttempts++;
+                const delay = Math.min(5000 * reconnectAttempts, 30000);
+                console.log(`🔄 Reconnecting in ${delay / 1000}s...`);
+                setTimeout(connectWebSocket, delay);
+            };
+
+            ws.onerror = (err) => {
+                console.error('WebSocket error:', err);
+                ws.close();
+            };
+        }
+
+        function updatePrices(data) {
+            // Update NIFTY
+            if (data.NIFTY) {
+                updatePriceElement('NIFTY', data.NIFTY);
+            }
+
+            // Update BANKNIFTY
+            if (data.BANKNIFTY) {
+                updatePriceElement('BANKNIFTY', data.BANKNIFTY);
+            }
+
+            // Update stock list
+            const stockSymbols = Object.keys(data).filter(s => !['NIFTY', 'BANKNIFTY'].includes(s));
+            if (stockSymbols.length > 0) {
+                renderStockList(stockSymbols.map(s => ({ symbol: s, ...data[s] })));
+            }
+        }
+
+        function updatePriceElement(symbol, data) {
+            const priceEl = document.getElementById(`price-${symbol}`);
+            const changeEl = document.getElementById(`change-${symbol}`);
+
+            if (priceEl) {
+                priceEl.textContent = `₹${formatNumber(data.price)}`;
+                priceEl.classList.add('price-flash');
+                setTimeout(() => priceEl.classList.remove('price-flash'), 300);
+            }
+
+            if (changeEl) {
+                const isPositive = data.change >= 0;
+                changeEl.textContent = `${isPositive ? '+' : ''}${data.change.toFixed(2)} (${isPositive ? '+' : ''}${data.change_pct.toFixed(2)}%)`;
+                changeEl.className = `index-change ${isPositive ? 'positive' : 'negative'}`;
+            }
+        }
+
+        function renderStockList(stocks) {
+            const list = document.getElementById('stockList');
+            list.innerHTML = stocks.map(stock => `
+                <div class="stock-card">
+                    <div class="stock-info">
+                        <span class="stock-symbol">${stock.symbol}</span>
+                        <span class="stock-name">${stockNames[stock.symbol] || stock.symbol}</span>
+                    </div>
+                    <div class="stock-price-section">
+                        <div class="stock-price ${stock.change >= 0 ? 'positive' : 'negative'}">₹${formatNumber(stock.price)}</div>
+                        <div class="stock-change ${stock.change >= 0 ? 'positive' : 'negative'}">
+                            ${stock.change >= 0 ? '+' : ''}${stock.change_pct.toFixed(2)}%
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function formatNumber(num) {
+            if (!num) return '--';
+            return parseFloat(num).toLocaleString('en-IN', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            });
+        }
+
+        // Search functionality
+        document.getElementById('searchInput').addEventListener('keydown', async (e) => {
+            if (e.key === 'Enter') {
+                const symbol = e.target.value.trim().toUpperCase();
+                if (symbol.length >= 2) {
+                    try {
+                        const res = await fetch(`${API_BASE}/stock/${symbol}`);
+                        if (res.ok) {
+                            const data = await res.json();
+                            alert(`${data.symbol}: ₹${data.price}\n${data.recommendation}\nEntry: ₹${data.trading_levels?.entry || 'N/A'}`);
+                        } else {
+                            alert(`Stock "${symbol}" not found`);
+                        }
+                    } catch (err) {
+                        alert('Search failed: ' + err.message);
+                    }
+                }
+            }
+        });
+
+        // Start connection
+        connectWebSocket();
+    </script>
+</body>
+
+</html>

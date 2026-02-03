@@ -272,6 +272,66 @@ class LiveStockScreener:
         else:
             filtered_stocks = all_stocks
         
+        # ✅ UPDATE FILTERED STOCK PRICES WITH MONEYCONTROL + GOOGLE FINANCE (LIVE ACCURACY)
+        from live_data import fetch_moneycontrol_stock, fetch_google_finance_data, MC_STOCK_IDS
+        updated_mc = 0
+        updated_gf = 0
+        
+        for stock in filtered_stocks:
+            symbol = stock.get('symbol', '')
+            new_price = None
+            source = None
+            
+            # Try Moneycontrol first (if mapping exists)
+            if symbol in MC_STOCK_IDS:
+                try:
+                    mc_data = fetch_moneycontrol_stock(symbol)
+                    if mc_data and mc_data.get('price', 0) > 0:
+                        new_price = mc_data['price']
+                        stock['change'] = round(mc_data['change'], 2)
+                        stock['change_pct'] = round(mc_data['change_pct'], 2)
+                        source = 'MC'
+                        updated_mc += 1
+                except:
+                    pass
+            
+            # Fallback to Google Finance for all stocks without MC data
+            if new_price is None:
+                try:
+                    gf_data = fetch_google_finance_data(symbol)
+                    if gf_data and gf_data.get('price', 0) > 0:
+                        new_price = gf_data['price']
+                        stock['change'] = round(gf_data['change'], 2)
+                        stock['change_pct'] = round(gf_data['change_pct'], 2)
+                        source = 'GF'
+                        updated_gf += 1
+                except:
+                    pass
+            
+            # Update price and recalculate trading levels
+            if new_price and new_price > 0:
+                stock['price'] = round(new_price, 2)
+                rec = stock.get('recommendation', 'HOLD')
+                if rec in ["STRONG BUY", "BUY"]:
+                    stock['trading_levels'] = {
+                        "entry": round(new_price * 0.995, 2),
+                        "target": round(new_price * 1.03, 2),
+                        "stoploss": round(new_price * 0.985, 2),
+                        "risk_reward": "1:3.0"
+                    }
+                elif rec in ["STRONG SELL", "SELL"]:
+                    stock['trading_levels'] = {
+                        "entry": round(new_price * 1.005, 2),
+                        "target": round(new_price * 0.97, 2),
+                        "stoploss": round(new_price * 1.015, 2),
+                        "risk_reward": "1:3.0"
+                    }
+        
+        total_updated = updated_mc + updated_gf
+        if total_updated > 0:
+            print(f"✅ Updated {total_updated} stocks: MC={updated_mc}, GF={updated_gf}")
+            data_source = f"LIVE(MC:{updated_mc}+GF:{updated_gf})"
+        
         # Calculate summary
         buy_count = sum(1 for s in all_stocks if s['recommendation'] in ['STRONG BUY', 'BUY'])
         sell_count = sum(1 for s in all_stocks if s['recommendation'] in ['STRONG SELL', 'SELL'])
@@ -291,43 +351,134 @@ class LiveStockScreener:
         }
     
     def get_stock_details(self, symbol: str) -> Optional[Dict]:
-        """Get detailed data for a specific stock."""
+        """Get detailed data for a specific stock with Moneycontrol prices (primary)."""
         # First check cache
         for stock in self._cache:
             if stock['symbol'] == symbol:
+                # Update price from Moneycontrol for accuracy (PRIMARY)
+                from live_data import fetch_moneycontrol_stock, fetch_google_finance_data
+                
+                # Try Moneycontrol first
+                mc_data = fetch_moneycontrol_stock(symbol)
+                if mc_data and mc_data.get('price', 0) > 0:
+                    new_price = mc_data['price']
+                    stock['price'] = new_price
+                    stock['change'] = mc_data['change']
+                    stock['change_pct'] = mc_data['change_pct']
+                    print(f"✅ Stock {symbol} price from Moneycontrol: ₹{new_price}")
+                else:
+                    # Fallback to Google Finance
+                    gf_data = fetch_google_finance_data(symbol)
+                    if gf_data and gf_data.get('price', 0) > 0:
+                        new_price = gf_data['price']
+                        stock['price'] = new_price
+                        stock['change'] = gf_data['change']
+                        stock['change_pct'] = gf_data['change_pct']
+                        print(f"✅ Stock {symbol} price from Google Finance: ₹{new_price}")
+                    else:
+                        return stock  # Return cached data if no update available
+                
+                # RECALCULATE trading_levels with correct price
+                rec = stock.get('recommendation', 'HOLD')
+                if rec in ["STRONG BUY", "BUY"]:
+                    stock['trading_levels'] = {
+                        "entry": round(new_price * 0.995, 2),
+                        "target": round(new_price * 1.03, 2),
+                        "stoploss": round(new_price * 0.985, 2),
+                        "risk_reward": "1:3.0"
+                    }
+                elif rec in ["STRONG SELL", "SELL"]:
+                    stock['trading_levels'] = {
+                        "entry": round(new_price * 1.005, 2),
+                        "target": round(new_price * 0.97, 2),
+                        "stoploss": round(new_price * 1.015, 2),
+                        "risk_reward": "1:3.0"
+                    }
+                else:
+                    stock['trading_levels'] = {
+                        "entry": round(new_price, 2),
+                        "target": round(new_price, 2),
+                        "stoploss": round(new_price, 2),
+                        "risk_reward": "N/A"
+                    }
                 return stock
         
         # If not in cache, try to fetch specific stock
         try:
-            from live_data import fetch_stock_quote, get_nse_session
+            from live_data import fetch_stock_quote, get_nse_session, fetch_google_finance_data, fetch_moneycontrol_stock
             
             # Ensure session is active
             get_nse_session()
             
-            # Fetch live quote
+            # PRIMARY: Get price from Moneycontrol (most accurate for Indian stocks)
+            mc_data = fetch_moneycontrol_stock(symbol)
+            
+            # SECONDARY: Get price from Google Finance
+            gf_data = None
+            if not mc_data or mc_data.get('price', 0) == 0:
+                gf_data = fetch_google_finance_data(symbol)
+            
+            # Fetch live quote from NSE for other data (sector, high/low)
             stock_quote = fetch_stock_quote(symbol)
             
-            if stock_quote and stock_quote.get('price', 0) > 0:
-                # Process the stock data
-                processed_stock = self._process_stock(stock_quote)
+            if stock_quote:
+                # Override price with Moneycontrol data if available
+                if mc_data and mc_data.get('price', 0) > 0:
+                    stock_quote['price'] = mc_data['price']
+                    stock_quote['change'] = mc_data['change']
+                    stock_quote['change_pct'] = mc_data['change_pct']
+                    print(f"✅ Stock {symbol} using Moneycontrol: ₹{mc_data['price']}")
+                elif gf_data and gf_data.get('price', 0) > 0:
+                    stock_quote['price'] = gf_data['price']
+                    stock_quote['change'] = gf_data['change']
+                    stock_quote['change_pct'] = gf_data['change_pct']
+                    print(f"✅ Stock {symbol} using Google Finance: ₹{gf_data['price']}")
                 
-                # Check if we should fallback to last close if live price is 0 (though we checked > 0)
-                # Sometimes live price is 0 in pre-open
-                
+                if stock_quote.get('price', 0) > 0:
+                    processed_stock = self._process_stock(stock_quote)
+                    if processed_stock:
+                        return processed_stock
+            
+            # If NSE failed but Moneycontrol worked, create minimal stock data
+            if mc_data and mc_data.get('price', 0) > 0:
+                minimal_stock = {
+                    'symbol': symbol,
+                    'name': mc_data.get('company', symbol),
+                    'sector': 'Various',
+                    'price': mc_data['price'],
+                    'change': mc_data['change'],
+                    'change_pct': mc_data['change_pct'],
+                    'week_52_high': mc_data.get('high_52', mc_data['price'] * 1.2),
+                    'week_52_low': mc_data.get('low_52', mc_data['price'] * 0.8)
+                }
+                processed_stock = self._process_stock(minimal_stock)
                 if processed_stock:
                     return processed_stock
             
-            # If still not found or invalid, try last close fetch for this symbol using fallback
-            # We use jugaad-data via fetch_fallback_quote
-            from live_data import fetch_fallback_quote
+            # If Moneycontrol failed but Google Finance worked
+            if gf_data and gf_data.get('price', 0) > 0:
+                minimal_stock = {
+                    'symbol': symbol,
+                    'name': symbol,
+                    'sector': 'Various',
+                    'price': gf_data['price'],
+                    'change': gf_data['change'],
+                    'change_pct': gf_data['change_pct'],
+                    'week_52_high': gf_data['price'] * 1.2,
+                    'week_52_low': gf_data['price'] * 0.8
+                }
+                processed_stock = self._process_stock(minimal_stock)
+                if processed_stock:
+                    return processed_stock
             
+            # Fallback to jugaad-data
+            from live_data import fetch_fallback_quote
             fallback_quote = fetch_fallback_quote(symbol)
             if fallback_quote:
                 processed_stock = self._process_stock(fallback_quote)
                 if processed_stock:
                     return processed_stock
             
-            # Or assume if fetch_stock_quote failed, it's not available.
             return None
             
         except Exception as e:

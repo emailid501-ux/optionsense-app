@@ -41,6 +41,7 @@
             <div class="logo">
                 <span class="logo-icon">📊</span>
                 <span class="logo-text">Option<span class="accent">Sense</span></span>
+                <span class="live-indicator">🔴 LIVE</span>
             </div>
             <div class="header-right">
                 <div class="market-status" id="marketStatus">
@@ -55,6 +56,8 @@
         <div class="symbol-toggle">
             <button class="toggle-btn active" data-symbol="NIFTY">NIFTY</button>
             <button class="toggle-btn" data-symbol="BANKNIFTY">BANKNIFTY</button>
+            <button class="toggle-btn" data-symbol="FINNIFTY">FINNIFTY</button>
+            <button class="toggle-btn" data-symbol="MIDCPNIFTY">MIDCAP</button>
         </div>
 
         <!-- Navigation Tabs -->
@@ -70,6 +73,10 @@
             <button class="nav-tab" data-tab="oi-analysis">
                 <span class="tab-icon">📈</span>
                 OI Chain
+            </button>
+            <button class="nav-tab" data-tab="pre-market">
+                <span class="tab-icon">🌍</span>
+                Pre-Market
             </button>
         </nav>
 
@@ -150,6 +157,104 @@
                         <div class="metric-trend" id="pcrTrend">
                             <span class="trend-icon">--</span>
                             <span class="trend-text">--</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Phase 15: Pro Trader Panel -->
+                <div class="pro-trader-panel" id="proTraderPanel">
+                    <h3 class="panel-title">🎯 Pro Trader Dashboard</h3>
+
+                    <!-- Advanced Indicators Row -->
+                    <div class="advanced-indicators">
+                        <!-- VIX Card -->
+                        <div class="indicator-card" id="vixCard">
+                            <div class="indicator-header">
+                                <span class="indicator-icon">⚡</span>
+                                <span class="indicator-title">INDIA VIX</span>
+                            </div>
+                            <div class="indicator-value" id="vixValue">--</div>
+                            <div class="indicator-status" id="vixStatus">Loading...</div>
+                            <div class="indicator-action" id="vixAction">--</div>
+                        </div>
+
+                        <!-- Market Breadth Card -->
+                        <div class="indicator-card" id="breadthCard">
+                            <div class="indicator-header">
+                                <span class="indicator-icon">📊</span>
+                                <span class="indicator-title">MARKET BREADTH</span>
+                            </div>
+                            <div class="indicator-value" id="breadthValue">
+                                <span class="adv">--</span> ↑ | <span class="dec">--</span> ↓
+                            </div>
+                            <div class="indicator-status" id="breadthStatus">Loading...</div>
+                            <div class="indicator-action" id="breadthAction">--</div>
+                        </div>
+
+                        <!-- Straddle/Theta Card -->
+                        <div class="indicator-card" id="straddleCard">
+                            <div class="indicator-header">
+                                <span class="indicator-icon">⏱️</span>
+                                <span class="indicator-title">THETA DECAY</span>
+                            </div>
+                            <div class="indicator-value" id="straddleValue">₹--</div>
+                            <div class="indicator-status" id="straddleStatus">ATM Straddle</div>
+                            <div class="indicator-action" id="straddleAction">--</div>
+                        </div>
+                    </div>
+
+                    <!-- OI Ladder -->
+                    <div class="oi-ladder-container" id="oiLadderContainer">
+                        <h4 class="ladder-title">📈 OI Ladder (Support/Resistance)</h4>
+                        <div class="ladder-grid">
+                            <div class="ladder-section resistance-section">
+                                <div class="ladder-label">RESISTANCE (Call OI)</div>
+                                <div class="ladder-levels" id="resistanceLevels">
+                                    <div class="ladder-item">Loading...</div>
+                                </div>
+                            </div>
+                            <div class="ladder-section support-section">
+                                <div class="ladder-label">SUPPORT (Put OI)</div>
+                                <div class="ladder-levels" id="supportLevels">
+                                    <div class="ladder-item">Loading...</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Pro Trader Checklist -->
+                    <div class="trader-checklist" id="traderChecklist">
+                        <h4 class="checklist-title">✅ Morning Checklist</h4>
+                        <div class="checklist-items">
+                            <div class="checklist-item" id="checkBreadth">
+                                <span class="check-icon">⬜</span>
+                                <span class="check-text">Market Breadth Checked</span>
+                                <span class="check-result" id="checkBreadthResult">--</span>
+                            </div>
+                            <div class="checklist-item" id="checkPCR">
+                                <span class="check-icon">⬜</span>
+                                <span class="check-text">PCR Analysis</span>
+                                <span class="check-result" id="checkPCRResult">--</span>
+                            </div>
+                            <div class="checklist-item" id="checkVWAP">
+                                <span class="check-icon">⬜</span>
+                                <span class="check-text">Price vs VWAP</span>
+                                <span class="check-result" id="checkVWAPResult">--</span>
+                            </div>
+                            <div class="checklist-item" id="checkVIX">
+                                <span class="check-icon">⬜</span>
+                                <span class="check-text">VIX Level</span>
+                                <span class="check-result" id="checkVIXResult">--</span>
+                            </div>
+                            <div class="checklist-item" id="checkOI">
+                                <span class="check-icon">⬜</span>
+                                <span class="check-text">OI Levels Identified</span>
+                                <span class="check-result" id="checkOIResult">--</span>
+                            </div>
+                        </div>
+                        <div class="checklist-verdict" id="checklistVerdict">
+                            <span class="verdict-icon">🎯</span>
+                            <span class="verdict-text">Complete checklist for trading recommendation</span>
                         </div>
                     </div>
                 </div>
@@ -237,12 +342,104 @@
                     <!-- Dynamic stock cards will be inserted here -->
                 </div>
             </section>
+
+            <!-- Pre-Market Analysis Tab -->
+            <section id="pre-market" class="tab-pane">
+                <div class="pre-market-header">
+                    <h2>🌍 Pre-Market Analysis</h2>
+                    <p class="pre-market-subtitle">Next Trading Day Preparation</p>
+                    <button class="refresh-btn" onclick="loadPreMarketAnalysis()">🔄 Refresh</button>
+                </div>
+
+                <!-- Overall Mood -->
+                <div class="mood-banner" id="overallMood">
+                    <span class="mood-icon">🔄</span>
+                    <span class="mood-text">Analyzing markets...</span>
+                </div>
+
+                <!-- Global Markets Grid -->
+                <div class="section-header">📊 Global Markets</div>
+                <div class="global-markets-grid" id="globalMarketsGrid">
+                    <!-- Dynamic market cards will be inserted here -->
+                    <div class="market-card loading">
+                        <span class="market-name">Loading...</span>
+                    </div>
+                </div>
+
+                <!-- News Sentiment -->
+                <div class="section-header">📰 News Sentiment</div>
+                <div class="news-sentiment-summary" id="newsSentimentSummary">
+                    <span class="sentiment-icon">🔄</span>
+                    <span class="sentiment-text">Analyzing news...</span>
+                </div>
+                <div class="news-list" id="newsList">
+                    <!-- Dynamic news cards will be inserted here -->
+                </div>
+
+                <!-- Tomorrow's Top Picks -->
+                <div class="section-header">🎯 Tomorrow's Top Picks</div>
+                <div class="top-picks-list" id="topPicksList">
+                    <!-- Dynamic pick cards will be inserted here -->
+                    <div class="pick-card loading">
+                        <span>Analyzing stocks...</span>
+                    </div>
+                </div>
+
+                <!-- Disclaimer -->
+                <div class="pre-market-disclaimer">
+                    ⚠️ This analysis is for educational purposes only. Past performance is not indicative of future
+                    results. Always do your own research (DYOR) before making any investment decisions.
+                </div>
+            </section>
         </main>
 
         <!-- Loading Overlay -->
         <div class="loading-overlay" id="loadingOverlay">
             <div class="loading-spinner"></div>
             <p>Fetching market data...</p>
+        </div>
+
+        <!-- Today's Best Pick Popup -->
+        <div class="best-pick-overlay" id="bestPickOverlay" style="display: none;">
+            <div class="best-pick-popup">
+                <button class="best-pick-close" onclick="closeBestPick()">✕</button>
+                <div class="best-pick-header">
+                    <span class="best-pick-emoji">🎯</span>
+                    <h2>Today's Best Pick</h2>
+                    <p class="best-pick-subtitle">Analyzed 200+ stocks using 5 indicators</p>
+                </div>
+                <div class="best-pick-stock">
+                    <span class="best-pick-symbol" id="bestPickSymbol">LOADING...</span>
+                    <span class="best-pick-name" id="bestPickName">Processing stocks...</span>
+                    <span class="best-pick-score" id="bestPickScore">Score: --</span>
+                </div>
+                <div class="best-pick-verdict" id="bestPickVerdict">
+                    🔄 Analyzing...
+                </div>
+                <div class="best-pick-levels">
+                    <div class="level-box entry">
+                        <span class="level-label">🟢 BUY (Entry)</span>
+                        <span class="level-price" id="bestPickEntry">₹--</span>
+                    </div>
+                    <div class="level-box target">
+                        <span class="level-label">🎯 TARGET</span>
+                        <span class="level-price" id="bestPickTarget">₹--</span>
+                    </div>
+                    <div class="level-box stoploss">
+                        <span class="level-label">🔴 STOPLOSS</span>
+                        <span class="level-price" id="bestPickStoploss">₹--</span>
+                    </div>
+                </div>
+                <div class="best-pick-indicators" id="bestPickIndicators">
+                    <!-- Indicators will be populated by JS -->
+                </div>
+                <div class="best-pick-reason" id="bestPickReason">
+                    Loading reasons...
+                </div>
+                <div class="best-pick-disclaimer">
+                    ⚠️ Educational purpose only. DYOR before investing.
+                </div>
+            </div>
         </div>
 
         <!-- Error Toast -->

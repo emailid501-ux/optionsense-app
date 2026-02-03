@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OptionSense - User Manual</title>
+    <style>
+        :root {
+            --bg-primary: #0a0a0f;
+            --bg-secondary: #12121a;
+            --bg-card: #1a1a24;
+            --text-primary: #ffffff;
+            --text-secondary: #a0a0b0;
+            --accent: #00d9ff;
+            --accent-green: #00ff88;
+            --accent-red: #ff4757;
+            --accent-yellow: #ffd93d;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            padding: 20px;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            background: linear-gradient(135deg, var(--accent), var(--accent-green));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: var(--text-secondary);
+            margin-bottom: 30px;
+        }
+
+        .lang-toggle {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 30px;
+        }
+
+        .lang-btn {
+            padding: 10px 25px;
+            border: 2px solid var(--accent);
+            background: transparent;
+            color: var(--accent);
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: all 0.3s;
+        }
+
+        .lang-btn.active {
+            background: var(--accent);
+            color: var(--bg-primary);
+        }
+
+        .lang-btn:hover {
+            transform: scale(1.05);
+        }
+
+        .section {
+            background: var(--bg-card);
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        h2 {
+            color: var(--accent);
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        h3 {
+            color: var(--accent-green);
+            margin: 15px 0 10px;
+        }
+
+        p {
+            color: var(--text-secondary);
+            margin-bottom: 10px;
+        }
+
+        ul,
+        ol {
+            margin-left: 20px;
+            color: var(--text-secondary);
+        }
+
+        li {
+            margin-bottom: 8px;
+        }
+
+        code {
+            background: var(--bg-secondary);
+            padding: 3px 8px;
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+            color: var(--accent-green);
+        }
+
+        pre {
+            background: var(--bg-secondary);
+            padding: 15px;
+            border-radius: 10px;
+            overflow-x: auto;
+            margin: 10px 0;
+            border-left: 3px solid var(--accent);
+        }
+
+        pre code {
+            background: none;
+            padding: 0;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+        }
+
+        th,
+        td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        th {
+            background: var(--bg-secondary);
+            color: var(--accent);
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: bold;
+        }
+
+        .badge-green {
+            background: rgba(0, 255, 136, 0.2);
+            color: var(--accent-green);
+        }
+
+        .badge-red {
+            background: rgba(255, 71, 87, 0.2);
+            color: var(--accent-red);
+        }
+
+        .badge-yellow {
+            background: rgba(255, 217, 61, 0.2);
+            color: var(--accent-yellow);
+        }
+
+        .warning {
+            background: rgba(255, 217, 61, 0.1);
+            border: 1px solid var(--accent-yellow);
+            padding: 15px;
+            border-radius: 10px;
+            margin: 15px 0;
+        }
+
+        .warning-title {
+            color: var(--accent-yellow);
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .back-link {
+            display: inline-block;
+            margin-bottom: 20px;
+            color: var(--accent);
+            text-decoration: none;
+        }
+
+        .back-link:hover {
+            text-decoration: underline;
+        }
+
+        .hindi {
+            display: none;
+        }
+
+        @media (max-width: 600px) {
+            body {
+                padding: 10px;
+            }
+
+            h1 {
+                font-size: 1.8rem;
+            }
+
+            .section {
+                padding: 15px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <a href="index.html" class="back-link">← Back to App</a>
+
+    <h1>📊 OptionSense</h1>
+    <p class="subtitle">Stock Analysis & Option Strategy Tool</p>
+
+    <div class="lang-toggle">
+        <button class="lang-btn active" onclick="showLang('english')">🇬🇧 English</button>
+        <button class="lang-btn" onclick="showLang('hindi')">🇮🇳 हिंदी</button>
+    </div>
+
+    <!-- ENGLISH VERSION -->
+    <div id="english-content">
+        <div class="section">
+            <h2>🎯 What is OptionSense?</h2>
+            <p>OptionSense is a <strong>real-time stock analysis tool</strong> that helps you:</p>
+            <ul>
+                <li>See <strong>Top 100 NSE stocks</strong> with Buy/Sell recommendations</li>
+                <li>Get <strong>technical analysis</strong> (RSI, MACD, Fibonacci levels)</li>
+                <li>Search <strong>any NSE listed stock</strong> for analysis</li>
+                <li>Get <strong>Option buying strategies</strong> for weekly trades</li>
+            </ul>
+        </div>
+
+        <div class="section">
+            <h2>💻 System Requirements</h2>
+            <table>
+                <tr>
+                    <th>Component</th>
+                    <th>Minimum</th>
+                </tr>
+                <tr>
+                    <td>OS</td>
+                    <td>Windows 10/11</td>
+                </tr>
+                <tr>
+                    <td>RAM</td>
+                    <td>4 GB</td>
+                </tr>
+                <tr>
+                    <td>Python</td>
+                    <td>3.9 or higher</td>
+                </tr>
+                <tr>
+                    <td>Internet</td>
+                    <td>Required (for live data)</td>
+                </tr>
+            </table>
+        </div>
+
+        <div class="section">
+            <h2>📥 Installation (One-Time Setup)</h2>
+
+            <h3>Step 1: Install Python</h3>
+            <ol>
+                <li>Go to <a href="https://python.org/downloads" target="_blank"
+                        style="color: var(--accent)">python.org/downloads</a></li>
+                <li>Download Python 3.11 (or latest)</li>
+                <li><strong>IMPORTANT:</strong> Check ✅ "Add Python to PATH" during installation</li>
+                <li>Click "Install Now"</li>
+            </ol>
+
+            <h3>Step 2: Download OptionSense</h3>
+            <ol>
+                <li>Extract <code>optionsense.zip</code> to a folder (e.g., <code>C:\OptionSense</code>)</li>
+                <li>You should see two folders: <code>backend</code> and <code>frontend</code></li>
+            </ol>
+
+            <h3>Step 3: Install Dependencies</h3>
+            <ol>
+                <li>Open <strong>Command Prompt</strong> (Press Win + R, type <code>cmd</code>, press Enter)</li>
+                <li>Navigate to backend folder:
+                    <pre><code>cd C:\OptionSense\backend</code></pre>
+                </li>
+                <li>Install required libraries:
+                    <pre><code>pip install -r requirements.txt</code></pre>
+                </li>
+                <li>Wait for installation to complete (2-5 minutes)</li>
+            </ol>
+        </div>
+
+        <div class="section">
+            <h2>🚀 How to Start the App</h2>
+
+            <h3>Step 1: Start the Server</h3>
+            <ol>
+                <li>Open <strong>Command Prompt</strong></li>
+                <li>Go to backend folder:
+                    <pre><code>cd C:\OptionSense\backend</code></pre>
+                </li>
+                <li>Start the server:
+                    <pre><code>uvicorn main:app --host 0.0.0.0 --port 8000</code></pre>
+                </li>
+                <li>Wait until you see: <code>Uvicorn running on http://0.0.0.0:8000</code></li>
+            </ol>
+
+            <h3>Step 2: Open the App</h3>
+            <ol>
+                <li>Open <strong>Google Chrome</strong> browser</li>
+                <li>Type this URL: <code>http://localhost:8000/frontend/index.html</code></li>
+                <li>Press Enter</li>
+            </ol>
+            <p style="font-size: 1.2rem; color: var(--accent-green);">🎉 Your app is now running!</p>
+        </div>
+
+        <div class="section">
+            <h2>📱 How to Use</h2>
+
+            <h3>Dashboard Tab</h3>
+            <ul>
+                <li>Shows <strong>NIFTY/BANKNIFTY sentiment</strong> (Bullish/Bearish/Neutral)</li>
+                <li><strong>PCR (Put-Call Ratio)</strong> indicates market direction</li>
+                <li><strong>VWAP Signal</strong> shows intraday trend</li>
+            </ul>
+
+            <h3>Stocks Tab</h3>
+            <ul>
+                <li><span class="badge badge-green">Buy (Green)</span> Recommended to buy</li>
+                <li><span class="badge badge-red">Sell (Red)</span> Recommended to sell/avoid</li>
+                <li><span class="badge badge-yellow">Watch (Yellow)</span> No clear signal, monitor</li>
+            </ul>
+
+            <h3>Search Any Stock</h3>
+            <ol>
+                <li>Type stock symbol in search box (e.g., <code>CDSL</code>, <code>IRCTC</code>, <code>TITAN</code>)
+                </li>
+                <li>Press Enter or click Search</li>
+                <li>Analysis will appear within 10-30 seconds</li>
+            </ol>
+
+            <h3>Option Strategy</h3>
+            <ul>
+                <li>Click <strong>"Get 1-Week Option Strategy"</strong> on any stock card</li>
+                <li>Shows recommended <strong>Call/Put</strong> option to buy</li>
+                <li>Displays <strong>Strike Price</strong>, <strong>Trend</strong>, and <strong>Risk Level</strong></li>
+            </ul>
+        </div>
+
+        <div class="section">
+            <h2>📲 Access from Phone (Same WiFi)</h2>
+            <p>If your laptop and phone are on the <strong>same WiFi network</strong>:</p>
+
+            <h3>Step 1: Find Your Laptop's IP</h3>
+            <ol>
+                <li>Open Command Prompt</li>
+                <li>Type: <code>ipconfig</code></li>
+                <li>Look for <strong>IPv4 Address</strong> (e.g., <code>192.168.29.129</code>)</li>
+            </ol>
+
+            <h3>Step 2: Open on Phone</h3>
+            <ol>
+                <li>Open Chrome on your phone</li>
+                <li>Type: <code>http://YOUR_IP:8000/frontend/index.html</code></li>
+                <li>Bookmark this page for easy access</li>
+            </ol>
+        </div>
+
+        <div class="section">
+            <h2>🔧 Troubleshooting</h2>
+            <table>
+                <tr>
+                    <th>Problem</th>
+                    <th>Solution</th>
+                </tr>
+                <tr>
+                    <td>"pip not found"</td>
+                    <td>Reinstall Python with "Add to PATH" checked</td>
+                </tr>
+                <tr>
+                    <td>"Module not found"</td>
+                    <td>Run <code>pip install -r requirements.txt</code> again</td>
+                </tr>
+                <tr>
+                    <td>"Connection refused"</td>
+                    <td>Make sure server is running</td>
+                </tr>
+                <tr>
+                    <td>Page not loading</td>
+                    <td>Check URL spelling</td>
+                </tr>
+                <tr>
+                    <td>Data not loading</td>
+                    <td>Check internet connection</td>
+                </tr>
+                <tr>
+                    <td>Slow loading</td>
+                    <td>Normal for first load (100 stocks), wait 30-60 sec</td>
+                </tr>
+            </table>
+        </div>
+
+        <div class="section">
+            <h2>📚 Trading Strategies Guide</h2>
+
+            <h3>1. PCR (Put-Call Ratio)</h3>
+            <p><strong>Formula:</strong> Total Put OI ÷ Total Call OI</p>
+            <table>
+                <tr>
+                    <th>PCR Value</th>
+                    <th>Signal</th>
+                    <th>Action</th>
+                </tr>
+                <tr>
+                    <td>> 1.0 (e.g., 1.25)</td>
+                    <td><span class="badge badge-green">Bullish</span></td>
+                    <td>Buy on Dips</td>
+                </tr>
+                <tr>
+                    <td>
+                        < 0.7</td>
+                    <td><span class="badge badge-red">Bearish</span></td>
+                    <td>Sell on Rise</td>
+                </tr>
+                <tr>
+                    <td>0.7 - 1.0</td>
+                    <td><span class="badge badge-yellow">Neutral</span></td>
+                    <td>Wait for clarity</td>
+                </tr>
+            </table>
+            <p><strong>Tip:</strong> If PCR was 1.5 and dropped to 1.2, reversal may be coming!</p>
+
+            <h3>2. OI Shift Analysis</h3>
+            <p>Check every 15-30 minutes for shifts in Open Interest.</p>
+            <ul>
+                <li><strong>Support Shift Up (Bullish):</strong> Max Put OI moved from 24,000 → 24,100. Market is
+                    bullish!</li>
+                <li><strong>Resistance Shift Down (Bearish):</strong> Max Call OI moved from 24,500 → 24,400. Bears are
+                    in control!</li>
+                <li><strong>Unwinding:</strong> If OI is decreasing at a strike, short covering may push price up.</li>
+            </ul>
+
+            <h3>3. VIX (Volatility Index)</h3>
+            <table>
+                <tr>
+                    <th>VIX Level</th>
+                    <th>Status</th>
+                    <th>Strategy</th>
+                </tr>
+                <tr>
+                    <td>
+                        < 15</td>
+                    <td><span class="badge badge-green">Low</span></td>
+                    <td>Option Buying is good</td>
+                </tr>
+                <tr>
+                    <td>15 - 18</td>
+                    <td><span class="badge badge-yellow">Moderate</span></td>
+                    <td>Be cautious</td>
+                </tr>
+                <tr>
+                    <td>> 18</td>
+                    <td><span class="badge badge-red">High</span></td>
+                    <td>Prefer Option Selling (premium decays fast)</td>
+                </tr>
+            </table>
+
+            <h3>4. Volume Analysis</h3>
+            <ul>
+                <li><strong>True Move:</strong> Price UP + Volume UP = Real buying. Stay in trade!</li>
+                <li><strong>Trap Move:</strong> Price making new high but Volume dropping = Fake breakout. Prepare for
+                    reversal!</li>
+            </ul>
+
+            <h3>5. OI Ladder</h3>
+            <p>Identifies support and resistance levels based on OI concentration.</p>
+            <pre><code>RESISTANCE (Call OI):
+  24,500 ████████ 50L OI (Strongest)
+  24,600 ██████   40L OI
+  24,700 ████     30L OI
+
+SUPPORT (Put OI):
+  24,000 ████████ 45L OI (Strongest)
+  23,900 █████    35L OI</code></pre>
+            <p><strong>Use:</strong> Market will struggle to break these levels. Use for stop-loss and target planning.
+            </p>
+
+            <h3>6. Theta Decay (Straddle Tracking)</h3>
+            <p>Add ATM Call price + ATM Put price = Straddle Price</p>
+            <ul>
+                <li>If Straddle price is <strong>falling fast</strong> → Market is <strong>sideways</strong>. Don't buy
+                    options!</li>
+                <li>If Straddle price is <strong>stable/rising</strong> → Market is <strong>trending</strong>. OK to buy
+                    options.</li>
+            </ul>
+
+            <h3>7. Market Breadth (Advance/Decline)</h3>
+            <p>Count how many NIFTY 50 stocks are up vs down.</p>
+            <table>
+                <tr>
+                    <th>Advancing</th>
+                    <th>Declining</th>
+                    <th>Signal</th>
+                </tr>
+                <tr>
+                    <td>35+</td>
+                    <td>
+                        < 15</td>
+                    <td><span class="badge badge-green">Bullish</span> - Look for Calls</td>
+                </tr>
+                <tr>
+                    <td>
+                        < 15</td>
+                    <td>35+</td>
+                    <td><span class="badge badge-red">Bearish</span> - Look for Puts</td>
+                </tr>
+                <tr>
+                    <td>~25</td>
+                    <td>~25</td>
+                    <td><span class="badge badge-yellow">Neutral</span> - Avoid trading</td>
+                </tr>
+            </table>
+
+            <h3>8. Pro Trader Workflow (Morning Checklist)</h3>
+            <p>Follow this routine every trading day:</p>
+            <ol>
+                <li><strong>9:15-9:30:</strong> Check Market Breadth (Advance/Decline)</li>
+                <li><strong>9:30:</strong> Check PCR (> 1 = Bullish, < 1=Bearish)</li>
+                <li><strong>Before Entry:</strong> Confirm price is above/below VWAP</li>
+                <li><strong>Check OI:</strong> See if writers are exiting your direction</li>
+                <li><strong>During Trade:</strong> Monitor Volume and VIX</li>
+            </ol>
+            <p style="color: var(--accent-green);"><strong>Using all 8 indicators together increases accuracy and
+                    reduces fake trades!</strong></p>
+        </div>
+
+        <div class="section">
+            <div class="warning">
+                <div class="warning-title">⚠️ Disclaimer</div>
+                <p>This tool is for <strong>Educational Purpose only</strong>. This is NOT financial advice. Do your own
+                    research before investing. User is responsible for any losses.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- HINDI VERSION -->
+    <div id="hindi-content" class="hindi">
+        <div class="section">
+            <h2>🎯 OptionSense क्या है?</h2>
+            <p>OptionSense एक <strong>रियल-टाइम स्टॉक एनालिसिस टूल</strong> है जो आपको:</p>
+            <ul>
+                <li><strong>टॉप 100 NSE स्टॉक्स</strong> Buy/Sell रिकमेंडेशन के साथ दिखाता है</li>
+                <li><strong>टेक्निकल एनालिसिस</strong> (RSI, MACD, Fibonacci) देता है</li>
+                <li><strong>कोई भी NSE स्टॉक</strong> सर्च और एनालाइज कर सकते हो</li>
+                <li><strong>ऑप्शन स्ट्रेटेजी</strong> वीकली ट्रेड के लिए देता है</li>
+            </ul>
+        </div>
+
+        <div class="section">
+            <h2>📥 इंस्टॉलेशन (सिर्फ एक बार)</h2>
+
+            <h3>स्टेप 1: Python इंस्टॉल करें</h3>
+            <ol>
+                <li><a href="https://python.org/downloads" target="_blank"
+                        style="color: var(--accent)">python.org/downloads</a> पर जाएं</li>
+                <li>Python 3.11 डाउनलोड करें</li>
+                <li><strong>जरूरी:</strong> इंस्टॉल करते वक्त ✅ "Add Python to PATH" पर टिक करें</li>
+                <li>"Install Now" पर क्लिक करें</li>
+            </ol>
+
+            <h3>स्टेप 2: OptionSense डाउनलोड करें</h3>
+            <ol>
+                <li><code>optionsense.zip</code> को किसी फोल्डर में Extract करें</li>
+                <li>दो फोल्डर दिखेंगे: <code>backend</code> और <code>frontend</code></li>
+            </ol>
+
+            <h3>स्टेप 3: Dependencies इंस्टॉल करें</h3>
+            <ol>
+                <li><strong>Command Prompt</strong> खोलें</li>
+                <li>Backend फोल्डर में जाएं:
+                    <pre><code>cd C:\OptionSense\backend</code></pre>
+                </li>
+                <li>Libraries इंस्टॉल करें:
+                    <pre><code>pip install -r requirements.txt</code></pre>
+                </li>
+            </ol>
+        </div>
+
+        <div class="section">
+            <h2>🚀 ऐप कैसे चलाएं</h2>
+
+            <h3>स्टेप 1: सर्वर स्टार्ट करें</h3>
+            <ol>
+                <li>Command Prompt खोलें</li>
+                <li>Backend फोल्डर में जाएं:
+                    <pre><code>cd C:\OptionSense\backend</code></pre>
+                </li>
+                <li>सर्वर चालू करें:
+                    <pre><code>uvicorn main:app --host 0.0.0.0 --port 8000</code></pre>
+                </li>
+            </ol>
+
+            <h3>स्टेप 2: ऐप खोलें</h3>
+            <ol>
+                <li>Chrome खोलें</li>
+                <li>URL टाइप करें: <code>http://localhost:8000/frontend/index.html</code></li>
+            </ol>
+            <p style="font-size: 1.2rem; color: var(--accent-green);">🎉 बधाई हो! ऐप चल रहा है!</p>
+        </div>
+
+        <div class="section">
+            <h2>📱 कैसे इस्तेमाल करें</h2>
+
+            <h3>Stocks टैब</h3>
+            <ul>
+                <li><span class="badge badge-green">Buy (हरा)</span> खरीदने की सिफारिश</li>
+                <li><span class="badge badge-red">Sell (लाल)</span> बेचने/टालने की सिफारिश</li>
+                <li><span class="badge badge-yellow">Watch (पीला)</span> कोई clear सिग्नल नहीं</li>
+            </ul>
+
+            <h3>कोई भी Stock सर्च करें</h3>
+            <ol>
+                <li>सर्च बॉक्स में stock symbol लिखें (जैसे <code>CDSL</code>, <code>IRCTC</code>)</li>
+                <li>Enter दबाएं</li>
+                <li>10-30 सेकंड में एनालिसिस आ जाएगी</li>
+            </ol>
+        </div>
+
+        <div class="section">
+            <h2>📲 फोन से कैसे देखें (Same WiFi)</h2>
+
+            <h3>स्टेप 1: Laptop का IP पता करें</h3>
+            <ol>
+                <li>Command Prompt खोलें</li>
+                <li>टाइप करें: <code>ipconfig</code></li>
+                <li><strong>IPv4 Address</strong> देखें (जैसे <code>192.168.29.129</code>)</li>
+            </ol>
+
+            <h3>स्टेप 2: Phone पर खोलें</h3>
+            <ol>
+                <li>Phone पर Chrome खोलें</li>
+                <li>टाइप करें: <code>http://YOUR_IP:8000/frontend/index.html</code></li>
+                <li>इस page को Bookmark कर लें</li>
+            </ol>
+        </div>
+
+        <div class="section">
+            <h2>🔧 समस्या और समाधान</h2>
+            <table>
+                <tr>
+                    <th>समस्या</th>
+                    <th>समाधान</th>
+                </tr>
+                <tr>
+                    <td>"pip not found"</td>
+                    <td>Python फिर से इंस्टॉल करें</td>
+                </tr>
+                <tr>
+                    <td>"Module not found"</td>
+                    <td><code>pip install -r requirements.txt</code> फिर चलाएं</td>
+                </tr>
+                <tr>
+                    <td>Page नहीं खुल रहा</td>
+                    <td>URL की spelling चेक करें</td>
+                </tr>
+                <tr>
+                    <td>Data नहीं आ रहा</td>
+                    <td>Internet चेक करें</td>
+                </tr>
+            </table>
+        </div>
+
+        <div class="section">
+            <div class="warning">
+                <div class="warning-title">⚠️ चेतावनी</div>
+                <p>यह टूल सिर्फ <strong>Educational Purpose</strong> के लिए है। यह Financial Advice नहीं है। Invest करने
+                    से पहले अपनी Research करें। Loss का जिम्मेदार User खुद है।</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function showLang(lang) {
+            const englishContent = document.getElementById('english-content');
+            const hindiContent = document.getElementById('hindi-content');
+            const buttons = document.querySelectorAll('.lang-btn');
+
+            if (lang === 'hindi') {
+                englishContent.style.display = 'none';
+                hindiContent.style.display = 'block';
+                buttons[0].classList.remove('active');
+                buttons[1].classList.add('active');
+            } else {
+                englishContent.style.display = 'block';
+                hindiContent.style.display = 'none';
+                buttons[0].classList.add('active');
+                buttons[1].classList.remove('active');
+            }
+        }
+    </script>
+</body>
+
+</html>
