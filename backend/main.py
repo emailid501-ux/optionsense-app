@@ -8,7 +8,7 @@ print(f"DEBUG: Current Directory: {current_dir}")
 sys.path.append(current_dir)
 sys.path.append(os.path.join(current_dir, "vendor"))
 
-from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect, Query
 from fastapi.middleware.cors import CORSMiddleware
 from typing import Literal
 import asyncio
