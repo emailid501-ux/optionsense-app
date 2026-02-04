@@ -15,7 +15,13 @@ from numpy import min as np_min
 from numpy.lib.stride_tricks import sliding_window_view
 
 from pandas import DataFrame, Series
-from numba import njit
+try:
+    from numba import njit
+except ImportError:
+    def njit(*args, **kwargs):
+        def decorator(func):
+            return func
+        return decorator
 from pandas_ta._typing import (
     Array,
     DictLike,
