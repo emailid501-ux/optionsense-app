@@ -1,25 +1,51 @@
 import os
 import sys
+import traceback
 
 # DEBUG: Print environment info to Vercel logs
 current_dir = os.path.dirname(os.path.abspath(__file__))
 print(f"DEBUG: Current Directory: {current_dir}")
-print(f"DEBUG: Files in Current Dir: {os.listdir(current_dir)}")
-print(f"DEBUG: sys.path: {sys.path}")
-
-# Add current directory (backend) and vendor directory to sys.path
-# This is CRITICAL for Vercel/Lambda environments to find local modules
 sys.path.append(current_dir)
 sys.path.append(os.path.join(current_dir, "vendor"))
 
-from fastapi import FastAPI, Query, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
 from typing import Literal
 import asyncio
 
-from data_provider import data_provider
-from websocket_manager import manager, get_live_prices
+# Safe Boot: Try to import core logic, but don't crash the app if they fail
+BOOT_ERROR = None
+DashboardSnapshot = None
+OIDetails = None
+data_provider = None
+manager = None
+get_live_prices = None
+get_complete_pro_analysis = None
+
+# Define a fallback class for response_model
+try:
+    from pydantic import BaseModel
+    class SafeBootData(BaseModel):
+        status: str
+        message: str
+    # Assign fallback
+    DashboardSnapshot = SafeBootData
+    OIDetails = SafeBootData
+except:
+    pass
+
+try:
+    from models import DashboardSnapshot, OIDetails
+    from data_provider import data_provider
+    from websocket_manager import manager, get_live_prices
+    from pro_trader_analysis import get_complete_pro_analysis
+    print("DEBUG: All imports successful")
+except Exception as e:
+    BOOT_ERROR = f"Failed to start backend: {str(e)}\n{traceback.format_exc()}"
+    print(f"CRITICAL BOOT ERROR: {BOOT_ERROR}")
+    # Variables are already safe defaults via top-level init 
+    # but we keep BOOT_ERROR to show user the issue
+
 
 app = FastAPI(
     title="OptionSense API",
@@ -27,34 +53,30 @@ app = FastAPI(
     version="2.0.0"
 )
 
-# Enable CORS for frontend
+# Enable CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow all origins for development
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-
 @app.get("/")
 async def root():
-    """Root endpoint."""
+    if BOOT_ERROR:
+        return {"status": "error", "message": BOOT_ERROR}
     return {
         "name": "OptionSense API",
         "version": "1.0.0",
-        "endpoints": [
-            "/dashboard-snapshot?symbol=NIFTY",
-            "/oi-details?symbol=NIFTY",
-            "/health"
-        ]
+        "status": "running"
     }
-
 
 @app.get("/health")
 async def health_check():
-    """Health check endpoint."""
-    return {"status": "healthy", "service": "OptionSense API"}
+    if BOOT_ERROR:
+        return {"status": "degraded", "error": BOOT_ERROR}
+    return {"status": "healthy"}
 
 
 # ===== Pro Trader 8-Point Analysis =====
