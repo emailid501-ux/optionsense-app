@@ -12,7 +12,13 @@ from numpy import (
     zeros_like
 )
 try:
+    try:
     from numba import njit
+except ImportError:
+    def njit(*args, **kwargs):
+        def decorator(func):
+            return func
+        return decorator
 except ImportError:
     def njit(*args, **kwargs):
         def decorator(func):

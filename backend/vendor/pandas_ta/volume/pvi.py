@@ -1,5 +1,11 @@
 # -*- coding: utf-8 -*-
-from numba import njit
+try:
+    from numba import njit
+except ImportError:
+    def njit(*args, **kwargs):
+        def decorator(func):
+            return func
+        return decorator
 from numpy import float64, zeros_like
 from pandas import DataFrame, Series
 from pandas_ta._typing import DictLike, Int

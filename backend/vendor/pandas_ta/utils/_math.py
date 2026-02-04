@@ -16,7 +16,13 @@ from numpy.lib.stride_tricks import sliding_window_view
 
 from pandas import DataFrame, Series
 try:
+    try:
     from numba import njit
+except ImportError:
+    def njit(*args, **kwargs):
+        def decorator(func):
+            return func
+        return decorator
 except ImportError:
     def njit(*args, **kwargs):
         def decorator(func):
