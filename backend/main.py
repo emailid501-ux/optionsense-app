@@ -1,9 +1,14 @@
 import os
 import sys
 
+# DEBUG: Print environment info to Vercel logs
+current_dir = os.path.dirname(os.path.abspath(__file__))
+print(f"DEBUG: Current Directory: {current_dir}")
+print(f"DEBUG: Files in Current Dir: {os.listdir(current_dir)}")
+print(f"DEBUG: sys.path: {sys.path}")
+
 # Add current directory (backend) and vendor directory to sys.path
 # This is CRITICAL for Vercel/Lambda environments to find local modules
-current_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(current_dir)
 sys.path.append(os.path.join(current_dir, "vendor"))
 
@@ -13,7 +18,6 @@ from fastapi.staticfiles import StaticFiles
 from typing import Literal
 import asyncio
 
-from models import DashboardSnapshot, OIDetails
 from data_provider import data_provider
 from websocket_manager import manager, get_live_prices
 
