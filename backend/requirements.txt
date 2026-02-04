@@ -1,7 +1,8 @@
 fastapi==0.109.0
 uvicorn==0.27.0
 requests==2.31.0
-pandas==2.2.0
+pandas==1.5.3
+numpy<2.0.0
 pandas-ta
 jugaad-data==0.24
 python-multipart==0.0.6
