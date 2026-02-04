@@ -1,16 +1,19 @@
-"""OptionSense Backend - FastAPI Application."""
+import os
+import sys
+
+# Add current directory (backend) and vendor directory to sys.path
+# This is CRITICAL for Vercel/Lambda environments to find local modules
+current_dir = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(current_dir)
+sys.path.append(os.path.join(current_dir, "vendor"))
+
 from fastapi import FastAPI, Query, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from typing import Literal
-import os
 import asyncio
 
 from models import DashboardSnapshot, OIDetails
-# Add vendor directory to path for pandas_ta
-import sys
-import os
-sys.path.append(os.path.join(os.path.dirname(__file__), "vendor"))
 from data_provider import data_provider
 from websocket_manager import manager, get_live_prices
 
