@@ -7,6 +7,10 @@ import os
 import asyncio
 
 from models import DashboardSnapshot, OIDetails
+# Add vendor directory to path for pandas_ta
+import sys
+import os
+sys.path.append(os.path.join(os.path.dirname(__file__), "vendor"))
 from data_provider import data_provider
 from websocket_manager import manager, get_live_prices
 
